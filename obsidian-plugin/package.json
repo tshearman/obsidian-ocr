@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-ocr-pdf-watcher",
+  "version": "0.1.0",
+  "description": "Obsidian plugin: watch folders for PDFs, OCR them with LLM vision APIs",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "tsx scripts/test-ocr.ts"
+  },
+  "keywords": ["obsidian", "ocr", "pdf"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.24.0",
+    "mupdf": "^1.0.0",
+    "obsidian": "^1.7.2",
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "openai": "^4.60.0",
+    "pdfjs-dist": "^4.9.155"
+  }
+}

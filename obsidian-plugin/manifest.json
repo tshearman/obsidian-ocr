@@ -1,0 +1,10 @@
+{
+  "id": "ocr-pdf-watcher",
+  "name": "OCR PDF Watcher",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Watches configured folders for new PDFs and generates OCR markdown files using LLM vision APIs.",
+  "author": "Toby",
+  "authorUrl": "",
+  "isDesktopOnly": true
+}
