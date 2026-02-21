@@ -115,7 +115,6 @@ export class PdfWatcher {
       buffer,
       file.extension,
       this.provider,
-      "markdown",
       this.settings.pdfDpi,
       this.settings.preprocess,
       this.settings.additionalOcrPromptInstructions

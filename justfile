@@ -24,6 +24,11 @@ build:
 test:
     cd obsidian-plugin && npm test
 
+# Integration check: OCR a real PDF and verify the output is non-empty text
+# Usage: PROVIDER=anthropic API_KEY=sk-ant-... just check-ocr
+check-ocr:
+    cd obsidian-plugin && npm run check-ocr
+
 # Lint TypeScript sources
 lint:
     cd obsidian-plugin && npm run lint

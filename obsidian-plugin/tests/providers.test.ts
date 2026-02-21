@@ -75,7 +75,7 @@ describe("AnthropicProvider", () => {
 
   it("sends the system prompt", async () => {
     const provider = new AnthropicProvider("key", "claude-sonnet-4-6");
-    await provider.ocr(FAKE_URLS, "markdown");
+    await provider.ocr(FAKE_URLS);
 
     const call = mockAnthropicCreate.mock.calls[0][0];
     expect(call.system).toBe(HANDWRITTEN_NOTES_PROMPT);
@@ -83,14 +83,14 @@ describe("AnthropicProvider", () => {
 
   it("appends extra instructions to the user message when provided", async () => {
     const provider = new AnthropicProvider("key", "claude-sonnet-4-6");
-    await provider.ocr(FAKE_URLS, "markdown", "Output in French.");
+    await provider.ocr(FAKE_URLS,"Output in French.");
 
     expect(lastAnthropicUserText()).toContain("Output in French.");
   });
 
   it("user message contains both base instruction and extra instructions", async () => {
     const provider = new AnthropicProvider("key", "claude-sonnet-4-6");
-    await provider.ocr(FAKE_URLS, "markdown", "Preserve table structure.");
+    await provider.ocr(FAKE_URLS,"Preserve table structure.");
 
     const text = lastAnthropicUserText();
     expect(text).toContain("OCR");
@@ -99,7 +99,7 @@ describe("AnthropicProvider", () => {
 
   it("does not append extra instructions when none are provided", async () => {
     const provider = new AnthropicProvider("key", "claude-sonnet-4-6");
-    await provider.ocr(FAKE_URLS, "markdown");
+    await provider.ocr(FAKE_URLS);
 
     const text = lastAnthropicUserText();
     expect(text).not.toContain("\n\n");
@@ -113,7 +113,7 @@ describe("OpenAIProvider", () => {
 
   it("sends the system prompt", async () => {
     const provider = new OpenAIProvider("key", "gpt-4o");
-    await provider.ocr(FAKE_URLS, "markdown");
+    await provider.ocr(FAKE_URLS);
 
     const call = mockOpenAICreate.mock.calls[0][0];
     const systemMsg = call.messages.find(
@@ -124,14 +124,14 @@ describe("OpenAIProvider", () => {
 
   it("appends extra instructions to the user message when provided", async () => {
     const provider = new OpenAIProvider("key", "gpt-4o");
-    await provider.ocr(FAKE_URLS, "markdown", "Output in French.");
+    await provider.ocr(FAKE_URLS,"Output in French.");
 
     expect(lastOpenAIUserText()).toContain("Output in French.");
   });
 
   it("user message contains both base instruction and extra instructions", async () => {
     const provider = new OpenAIProvider("key", "gpt-4o");
-    await provider.ocr(FAKE_URLS, "markdown", "Preserve table structure.");
+    await provider.ocr(FAKE_URLS,"Preserve table structure.");
 
     const text = lastOpenAIUserText();
     expect(text).toContain("OCR");
@@ -140,7 +140,7 @@ describe("OpenAIProvider", () => {
 
   it("does not append extra instructions when none are provided", async () => {
     const provider = new OpenAIProvider("key", "gpt-4o");
-    await provider.ocr(FAKE_URLS, "markdown");
+    await provider.ocr(FAKE_URLS);
 
     const text = lastOpenAIUserText();
     expect(text).not.toContain("\n\n");

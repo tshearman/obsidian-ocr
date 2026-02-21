@@ -1,3 +1,3 @@
 export interface LlmProvider {
-  ocr(imageDataUrls: string[], outputFormat: "markdown" | "text", extraInstructions?: string): Promise<string>;
+  ocr(imageDataUrls: string[], extraInstructions?: string): Promise<string>;
 }

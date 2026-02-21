@@ -14,10 +14,6 @@
  *                     noise.  Makes fine strokes in mathematical notation
  *                     crisper for the model to distinguish.
  *
- * Intentionally omitted (matches Python version)
- * -----------------------------------------------
- * * Grayscale conversion — colour carries meaning in annotated notes.
- * * Binarisation         — destroys gradient information; hurts handwriting.
  */
 
 // ── Pure pixel-array functions (testable without DOM) ─────────────────────────

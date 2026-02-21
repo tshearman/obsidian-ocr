@@ -108,5 +108,5 @@ console.error(`Provider : ${providerName}`);
 console.error(`File     : ${filePath} (${imageDataUrls.length} image(s))`);
 console.error("Sending to API…\n");
 
-const raw = await provider.ocr(imageDataUrls, "markdown");
+const raw = await provider.ocr(imageDataUrls);
 console.log(normalizeLatexDelimiters(raw));

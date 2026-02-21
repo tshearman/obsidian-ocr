@@ -54,7 +54,6 @@ describe("ocrFile", () => {
       });
       expect(provider.ocr).toHaveBeenCalledWith(
         ["data:image/png;base64,abc123"],
-        "markdown",
         undefined
       );
       expect(result).toContain("# Heading");
@@ -62,7 +61,7 @@ describe("ocrFile", () => {
 
     it("uses pdfDpi to derive scale", async () => {
       const provider = makeProvider("text");
-      await ocrFile(makeBuffer(), "pdf", provider, "markdown", 144);
+      await ocrFile(makeBuffer(), "pdf", provider, 144);
 
       expect(pdfToDataUrls).toHaveBeenCalledWith(expect.any(ArrayBuffer), {
         scale: 2.0,
@@ -79,7 +78,6 @@ describe("ocrFile", () => {
 
       expect(provider.ocr).toHaveBeenCalledWith(
         ["data:image/png;base64,page1", "data:image/png;base64,page2"],
-        "markdown",
         undefined
       );
     });
@@ -93,7 +91,6 @@ describe("ocrFile", () => {
       expect(pdfToDataUrls).not.toHaveBeenCalled();
       expect(provider.ocr).toHaveBeenCalledWith(
         [expect.stringMatching(/^data:image\/png;base64,/)],
-        "markdown",
         undefined
       );
       expect(result).toBe("image text");
@@ -121,24 +118,15 @@ describe("ocrFile", () => {
 
       expect(provider.ocr).toHaveBeenCalledWith(
         [expect.stringMatching(/^data:image\/png;base64,/)],
-        "markdown",
         undefined
       );
     });
   });
 
-  describe("output format", () => {
-    it("normalizes latex delimiters for markdown output", async () => {
-      const provider = makeProvider(String.raw`\(x\)`);
-      const result = await ocrFile(makeBuffer(), "png", provider, "markdown");
-      expect(result).toBe("$x$");
-    });
-
-    it("does not normalize for text output", async () => {
-      const provider = makeProvider(String.raw`\(x\)`);
-      const result = await ocrFile(makeBuffer(), "png", provider, "text");
-      expect(result).toBe(String.raw`\(x\)`);
-    });
+  it("normalizes latex delimiters in the output", async () => {
+    const provider = makeProvider(String.raw`\(x\)`);
+    const result = await ocrFile(makeBuffer(), "png", provider);
+    expect(result).toBe("$x$");
   });
 
   // ── Preprocessing flag — mirrors TestCliPreprocessFlag ──────────────────────
@@ -152,13 +140,13 @@ describe("ocrFile", () => {
 
     it("preprocessing is applied to images when preprocess=true", async () => {
       const provider = makeProvider("text");
-      await ocrFile(makeBuffer(), "png", provider, "markdown", 150, true);
+      await ocrFile(makeBuffer(), "png", provider, 150, true);
       expect(preprocessImageDataUrl).toHaveBeenCalledOnce();
     });
 
     it("preprocessing is skipped when preprocess=false", async () => {
       const provider = makeProvider("text");
-      await ocrFile(makeBuffer(), "png", provider, "markdown", 150, false);
+      await ocrFile(makeBuffer(), "png", provider, 150, false);
       expect(preprocessImageDataUrl).not.toHaveBeenCalled();
     });
 
@@ -169,7 +157,7 @@ describe("ocrFile", () => {
         "data:image/png;base64,page3",
       ]);
       const provider = makeProvider("text");
-      await ocrFile(makeBuffer(), "pdf", provider, "markdown", 150, true);
+      await ocrFile(makeBuffer(), "pdf", provider, 150, true);
       expect(preprocessImageDataUrl).toHaveBeenCalledTimes(3);
     });
 
@@ -179,7 +167,7 @@ describe("ocrFile", () => {
         "data:image/png;base64,page2",
       ]);
       const provider = makeProvider("text");
-      await ocrFile(makeBuffer(), "pdf", provider, "markdown", 150, false);
+      await ocrFile(makeBuffer(), "pdf", provider, 150, false);
       expect(preprocessImageDataUrl).not.toHaveBeenCalled();
     });
   });

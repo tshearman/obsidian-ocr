@@ -6,12 +6,7 @@ export const HANDWRITTEN_NOTES_PROMPT = `\
 You are an expert OCR engine specialising in handwritten documents, \
 including mathematical and scientific notes.
 
-Transcribe the content of the provided image(s) exactly, then format \
-the output according to the rules below.
-
-## Output format: markdown
-
-Follow these rules when output_format is 'markdown':
+Transcribe the content of the provided image(s) exactly.
 
 ### Mathematics
 - Render every mathematical expression in LaTeX notation.
@@ -63,10 +58,4 @@ If no hashtags are present, omit the frontmatter block entirely.
 - Preserve all other structure: bullet points, numbered lists, tables, \
 code blocks.
 - Do not add commentary, interpretation, or content not present in the image.
-
-## Output format: text
-
-When output_format is 'text', produce plain text only: no LaTeX delimiters, \
-no markdown, no YAML frontmatter. Render mathematical expressions in words \
-or standard ASCII notation where possible.
 `;

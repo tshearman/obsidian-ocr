@@ -13,7 +13,7 @@ export class AnthropicProvider implements LlmProvider {
     this.model = model;
   }
 
-  async ocr(imageDataUrls: string[], outputFormat: "markdown" | "text", extraInstructions?: string): Promise<string> {
+  async ocr(imageDataUrls: string[], extraInstructions?: string): Promise<string> {
     const content: Anthropic.MessageParam["content"] = [];
 
     imageDataUrls.forEach((dataUrl, i) => {
@@ -32,8 +32,8 @@ export class AnthropicProvider implements LlmProvider {
     });
 
     const userText = extraInstructions
-      ? `Please OCR all content above. Output format: ${outputFormat}.\n\n${extraInstructions}`
-      : `Please OCR all content above. Output format: ${outputFormat}.`;
+      ? `Please OCR all content above.\n\n${extraInstructions}`
+      : `Please OCR all content above.`;
     content.push({ type: "text", text: userText });
 
     const response = await this.client.messages.create({

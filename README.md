@@ -27,6 +27,20 @@ just build                            # compiles TypeScript → dist/main.js
 just install-plugin ~/path/to/vault   # creates plugin folder and symlinks files
 ```
 
+### Verify the installation
+
+Before opening Obsidian, confirm that the OCR pipeline works end-to-end with your API key:
+
+```bash
+# Anthropic
+PROVIDER=anthropic API_KEY=sk-ant-... just check-ocr
+
+# OpenAI
+PROVIDER=openai API_KEY=sk-... just check-ocr
+```
+
+This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if the response contains readable text. No quality checks — just a smoke test that the credentials, network, and pipeline are all working.
+
 ### Enable the plugin
 
 1. Open Obsidian → **Settings → Community plugins**
@@ -110,6 +124,7 @@ Then use npm scripts directly, or install `just` and use the justfile from the r
 | `just test` | Run the Vitest suite |
 | `just lint` | ESLint |
 | `just ocr <file>` | Run the CLI against a file |
+| `just check-ocr` | Integration smoke test (requires `PROVIDER` + `API_KEY`) |
 | `just install-plugin <vault>` | Symlink the plugin into an Obsidian vault |
 | `just fmt` | Format Nix files |
 
@@ -128,6 +143,7 @@ To install it manually after cloning: `cd obsidian-plugin && npx simple-git-hook
 ```
 obsidian-plugin/
   cli.ts              # Node CLI entry point
+  check-ocr.ts        # Integration smoke test
   src/
     main.ts           # Obsidian plugin entry point + settings UI
     watcher.ts        # Vault event handler
