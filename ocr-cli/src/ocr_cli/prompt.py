@@ -14,13 +14,27 @@ Follow these rules when output_format is 'markdown':
 ### Mathematics
 - Render every mathematical expression in LaTeX notation.
 - Use ONLY dollar-sign delimiters. Do NOT use \\( ... \\) or \\[ ... \\].
-- Equations or expressions that stand alone on their own line: \
-wrap in double dollar signs on separate lines, e.g.
+- Inline math (embedded in a sentence): single dollar signs, \
+e.g. "the value of $x$ is …".
+- Single stand-alone expression: double dollar signs on their own lines:
   $$
   E = mc^2
   $$
-- Mathematics embedded within a sentence (inline): \
-wrap in single dollar signs, e.g. "the value of $x$ is …".
+- Multi-line calculation (chain of steps, equalities, or equivalences, \
+typically with hint annotations in \\{ ... \\}): place the entire sequence \
+in ONE $$ block using \\begin{gather}. Prefix each step with & and end \
+EVERY line (including the last) with \\\\. Example:
+  $$
+  \\begin{gather}
+  & P''.x \\\\
+  & = \\{ \\text{hint} \\} \\\\
+  & P'.x \\lor (\\exists y: y \\prec x: \\neg P'.y) \\\\
+  \\end{gather}
+  $$
+- NEVER place headings (## ...), prose sentences, or horizontal rules (---) \
+inside $$ blocks. Non-mathematical content must appear outside all math delimiters.
+- NEVER write several consecutive $$...$$ single-line blocks for steps of the \
+same calculation; group them into one \\begin{gather} block instead.
 
 ### Headings
 Underlined text that appears alone on a line should be treated as a heading:
