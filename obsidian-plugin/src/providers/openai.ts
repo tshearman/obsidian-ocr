@@ -13,7 +13,7 @@ export class OpenAIProvider implements LlmProvider {
     this.model = model;
   }
 
-  async ocr(imageDataUrls: string[], outputFormat: "markdown" | "text"): Promise<string> {
+  async ocr(imageDataUrls: string[], outputFormat: "markdown" | "text", extraInstructions?: string): Promise<string> {
     const userContent: OpenAI.Chat.ChatCompletionContentPart[] = imageDataUrls.flatMap(
       (url, i): OpenAI.Chat.ChatCompletionContentPart[] => [
         ...(imageDataUrls.length > 1
@@ -23,10 +23,10 @@ export class OpenAIProvider implements LlmProvider {
       ]
     );
 
-    userContent.push({
-      type: "text",
-      text: `OCR all content above. Output format: ${outputFormat}.`,
-    });
+    const userText = extraInstructions
+      ? `OCR all content above. Output format: ${outputFormat}.\n\n${extraInstructions}`
+      : `OCR all content above. Output format: ${outputFormat}.`;
+    userContent.push({ type: "text", text: userText });
 
     const response = await this.client.chat.completions.create({
       model: this.model,

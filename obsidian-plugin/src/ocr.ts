@@ -14,7 +14,8 @@ export async function ocrFile(
   provider: LlmProvider,
   outputFormat: "markdown" | "text" = "markdown",
   pdfDpi = 150,
-  preprocess = true
+  preprocess = true,
+  extraInstructions = ""
 ): Promise<string> {
   let imageDataUrls: string[];
 
@@ -33,7 +34,7 @@ export async function ocrFile(
     imageDataUrls = await Promise.all(imageDataUrls.map(preprocessImageDataUrl));
   }
 
-  const raw = await provider.ocr(imageDataUrls, outputFormat);
+  const raw = await provider.ocr(imageDataUrls, outputFormat, extraInstructions || undefined);
   return outputFormat === "markdown" ? normalizeLatexDelimiters(raw) : raw;
 }
 

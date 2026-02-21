@@ -79,7 +79,12 @@ export default class OcrPlugin extends Plugin {
 
   rebuildWatcher() {
     const provider = this.buildProvider();
-    this.watcher = new PdfWatcher(this.app.vault, this.settings, provider);
+    this.watcher = new PdfWatcher(
+      this.app.vault,
+      this.settings,
+      provider,
+      () => this.saveData(this.settings)
+    );
   }
 
   private buildProvider(): LlmProvider {
@@ -279,6 +284,22 @@ class OcrSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (v) => {
             this.plugin.settings.pdfDpi = v;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // ── Prompt customisation ──────────────────────────────────────────────
+    new Setting(containerEl)
+      .setName("Additional OCR prompt instructions")
+      .setDesc(
+        "Extra instructions appended to the OCR prompt. Use this to tailor output style, language, or domain-specific formatting."
+      )
+      .addTextArea((t) =>
+        t
+          .setPlaceholder("e.g. Preserve table structure. Output in French.")
+          .setValue(this.plugin.settings.additionalOcrPromptInstructions)
+          .onChange(async (v) => {
+            this.plugin.settings.additionalOcrPromptInstructions = v;
             await this.plugin.saveSettings();
           })
       );

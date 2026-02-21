@@ -4,21 +4,37 @@
  */
 
 import { Notice, TFile, Vault, normalizePath } from "obsidian";
-import type { OcrPluginSettings } from "./settings";
+import type { OcrPluginSettings, ProcessedEntry } from "./settings";
 import type { LlmProvider } from "./providers/base";
 import { ocrFile } from "./ocr";
+
+/** SHA-256 hex digest of an ArrayBuffer, using the Web Crypto API. */
+async function computeHash(buffer: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export class PdfWatcher {
   private vault: Vault;
   private settings: OcrPluginSettings;
   private provider: LlmProvider;
-  /** Tracks files currently being processed to prevent duplicate runs */
+  /** Tracks files currently being processed to prevent duplicate concurrent runs. */
   private processing = new Set<string>();
+  /** Persists the processedLog slice of settings to disk without rebuilding the watcher. */
+  private persistLog: () => Promise<void>;
 
-  constructor(vault: Vault, settings: OcrPluginSettings, provider: LlmProvider) {
+  constructor(
+    vault: Vault,
+    settings: OcrPluginSettings,
+    provider: LlmProvider,
+    persistLog: () => Promise<void>
+  ) {
     this.vault = vault;
     this.settings = settings;
     this.provider = provider;
+    this.persistLog = persistLog;
   }
 
   /** Call from plugin's vault onCreate/onModify event handlers. */
@@ -53,24 +69,59 @@ export class PdfWatcher {
   private async processFile(file: TFile): Promise<void> {
     const outputPath = this.getOutputPath(file);
 
+    // Buffer and hash are computed lazily — we avoid reading the file at all
+    // when the mtime check is sufficient to confirm nothing has changed.
+    let buffer: ArrayBuffer | null = null;
+    let hash: string | null = null;
+
     if (!this.settings.overwriteExisting) {
-      const exists = await this.vault.adapter.exists(outputPath);
-      if (exists) return;
+      const entry = this.settings.processedLog[file.path];
+
+      if (entry) {
+        if (entry.mtime === file.stat.mtime) {
+          // Fast path: mtime unchanged — content definitely the same, skip.
+          return;
+        }
+        // mtime changed — read and hash to see if content actually differs.
+        buffer = await this.vault.readBinary(file);
+        hash = await computeHash(buffer);
+        if (hash === entry.hash) {
+          // Content unchanged (e.g. backup software bumped the mtime).
+          // Update the cached mtime so future checks stay fast.
+          this.settings.processedLog[file.path] = {
+            ...entry,
+            mtime: file.stat.mtime,
+          };
+          await this.persistLog();
+          return;
+        }
+        // Hash differs — content has changed, fall through to re-process.
+      } else {
+        // Not yet in the log. For backward compatibility with vaults that
+        // were set up before the log existed, skip if the output file is
+        // already present. The log will be populated on the next change.
+        const exists = await this.vault.adapter.exists(outputPath);
+        if (exists) return;
+      }
     }
 
     new Notice(`OCR: processing ${file.name}…`);
 
-    const buffer = await this.vault.readBinary(file);
+    if (!buffer) buffer = await this.vault.readBinary(file);
+    if (!hash) hash = await computeHash(buffer);
+
+    const model = this.currentModel();
     const markdown = await ocrFile(
       buffer,
       file.extension,
       this.provider,
       "markdown",
       this.settings.pdfDpi,
-      this.settings.preprocess
+      this.settings.preprocess,
+      this.settings.additionalOcrPromptInstructions
     );
 
-    const content = this.buildOutput(file, markdown);
+    const content = this.buildOutput(file, markdown, hash, model);
 
     const exists = await this.vault.adapter.exists(outputPath);
     if (exists) {
@@ -79,10 +130,30 @@ export class PdfWatcher {
       await this.vault.create(outputPath, content);
     }
 
+    this.settings.processedLog[file.path] = {
+      processedAt: new Date().toISOString(),
+      mtime: file.stat.mtime,
+      hash,
+      provider: this.settings.provider,
+      model,
+    } satisfies ProcessedEntry;
+    await this.persistLog();
+
     new Notice(`OCR: done → ${outputPath}`);
   }
 
-  private buildOutput(file: TFile, markdown: string): string {
+  private currentModel(): string {
+    return this.settings.provider === "anthropic"
+      ? this.settings.anthropicModel
+      : this.settings.openaiModel;
+  }
+
+  private buildOutput(
+    file: TFile,
+    markdown: string,
+    hash: string,
+    model: string
+  ): string {
     const { tags, body } = extractFrontmatterTags(markdown);
 
     const lines = [
@@ -90,6 +161,8 @@ export class PdfWatcher {
       `source: "[[${file.basename}]]"`,
       `generated: "${new Date().toISOString()}"`,
       `provider: "${this.settings.provider}"`,
+      `model: "${model}"`,
+      `pdf-hash: "${hash}"`,
     ];
 
     if (tags.length > 0) {

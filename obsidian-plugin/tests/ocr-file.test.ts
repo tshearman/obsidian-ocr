@@ -54,7 +54,8 @@ describe("ocrFile", () => {
       });
       expect(provider.ocr).toHaveBeenCalledWith(
         ["data:image/png;base64,abc123"],
-        "markdown"
+        "markdown",
+        undefined
       );
       expect(result).toContain("# Heading");
     });
@@ -78,7 +79,8 @@ describe("ocrFile", () => {
 
       expect(provider.ocr).toHaveBeenCalledWith(
         ["data:image/png;base64,page1", "data:image/png;base64,page2"],
-        "markdown"
+        "markdown",
+        undefined
       );
     });
   });
@@ -91,7 +93,8 @@ describe("ocrFile", () => {
       expect(pdfToDataUrls).not.toHaveBeenCalled();
       expect(provider.ocr).toHaveBeenCalledWith(
         [expect.stringMatching(/^data:image\/png;base64,/)],
-        "markdown"
+        "markdown",
+        undefined
       );
       expect(result).toBe("image text");
     });
@@ -118,7 +121,8 @@ describe("ocrFile", () => {
 
       expect(provider.ocr).toHaveBeenCalledWith(
         [expect.stringMatching(/^data:image\/png;base64,/)],
-        "markdown"
+        "markdown",
+        undefined
       );
     });
   });
