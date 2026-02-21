@@ -1,5 +1,5 @@
 {
-  description = "OCR CLI + Obsidian plugin — LLM-powered document OCR";
+  description = "OCR Obsidian plugin — LLM-powered document OCR";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -17,46 +17,6 @@
       };
     in
     {
-      # ── Nix package: installable via `nix profile install .#ocr-cli` ──
-      packages = forAllSystems (system:
-        let
-          pkgs = pkgsFor system;
-
-          ocrCli = pkgs.python312.pkgs.buildPythonApplication {
-            pname = "ocr-cli";
-            version = "0.1.0";
-            pyproject = true;
-
-            src = ./ocr-cli;
-
-            build-system = [
-              pkgs.python312.pkgs.hatchling
-            ];
-
-            dependencies = with pkgs.python312.pkgs; [
-              anthropic
-              openai
-              pymupdf
-              click
-              python-dotenv
-              pillow
-              rich
-            ];
-
-            doCheck = false;
-
-            meta = {
-              description = "CLI tool for OCR of images and PDFs using LLM vision APIs";
-              mainProgram = "ocr";
-            };
-          };
-        in
-        {
-          ocr-cli = ocrCli;
-          default = ocrCli;
-        }
-      );
-
       # ── Dev shell: `nix develop` ────────────────────────────────────────
       devShells = forAllSystems (system:
         let
@@ -67,10 +27,6 @@
             name = "ocr-dev";
 
             packages = [
-              # Python toolchain — uv manages the venv, Nix provides the interpreter
-              pkgs.python312
-              pkgs.uv
-
               # Node.js LTS for Obsidian plugin development
               pkgs.nodejs_22
 
@@ -84,10 +40,6 @@
             ];
 
             shellHook = ''
-              # Point uv at the Nix-provided Python so versions stay consistent
-              export UV_PYTHON_DOWNLOADS=never
-              export UV_PYTHON="${pkgs.python312}/bin/python3"
-
               # Find the project root (directory containing flake.nix) regardless
               # of where `nix develop` is invoked from.
               _ocr_find_root() {
@@ -101,19 +53,17 @@
               OCR_ROOT="$(_ocr_find_root)"
               unset -f _ocr_find_root
 
-              # Auto-create venv on first enter
-              if [ -d "$OCR_ROOT/ocr-cli" ] && [ ! -d "$OCR_ROOT/ocr-cli/.venv" ]; then
-                echo "Creating Python venv for ocr-cli..."
-                (cd "$OCR_ROOT/ocr-cli" && uv sync --quiet)
+              # Auto-install npm deps on first enter
+              if [ ! -d "$OCR_ROOT/obsidian-plugin/node_modules" ]; then
+                echo "Installing npm dependencies for obsidian-plugin..."
+                (cd "$OCR_ROOT/obsidian-plugin" && npm install --silent)
               fi
 
               echo ""
               echo "ocr dev shell  (root: $OCR_ROOT)"
-              echo "  Python $(python3 --version)"
               echo "  Node   $(node --version)"
-              echo "  uv     $(uv --version)"
+              echo "  npm    $(npm --version)"
               echo ""
-              echo "  cd ocr-cli/         → Python CLI (uv run ocr ...)"
               echo "  cd obsidian-plugin/ → npm run dev"
               echo "  just --list         → available tasks"
               echo ""

@@ -2,41 +2,31 @@
 default:
     just --list
 
-# Bootstrap all dependencies
-bootstrap: bootstrap-py bootstrap-node
-
-bootstrap-py:
-    cd ocr-cli && uv sync
-
-bootstrap-node:
+# Install npm dependencies (also wires up git pre-commit hook)
+bootstrap:
     cd obsidian-plugin && npm install
 
-# Run the OCR CLI
+# Convert a file to markdown via the LLM (output to stdout)
+# Usage: just ocr path/to/file.pdf
+# Usage: OCR_PROVIDER=openai just ocr path/to/image.png
 ocr *args:
-    cd ocr-cli && uv run ocr {{args}}
-
-# Build the Nix package
-build:
-    nix build .#ocr-cli
+    cd obsidian-plugin && npm run ocr -- {{args}}
 
 # Obsidian plugin — watch mode (for development)
-plugin-dev:
+dev:
     cd obsidian-plugin && npm run dev
 
 # Obsidian plugin — production build
-plugin-build:
+build:
     cd obsidian-plugin && npm run build
 
-# Run all tests (Python CLI + Obsidian plugin)
-test: test-py test-ts
-
-# Run Python tests
-test-py:
-    cd ocr-cli && uv run pytest tests/ -v
-
-# Run Obsidian plugin tests
-test-ts:
+# Run the test suite
+test:
     cd obsidian-plugin && npm test
+
+# Lint TypeScript sources
+lint:
+    cd obsidian-plugin && npm run lint
 
 # Format Nix files
 fmt:
@@ -47,6 +37,5 @@ fmt:
 install-plugin vault:
     mkdir -p "{{vault}}/.obsidian/plugins/ocr-pdf-watcher"
     ln -sf "$(pwd)/obsidian-plugin/dist/main.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/main.js"
-    ln -sf "$(pwd)/obsidian-plugin/dist/pdf.worker.min.mjs" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/pdf.worker.min.mjs"
     ln -sf "$(pwd)/obsidian-plugin/manifest.json" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/manifest.json"
     echo "Plugin linked to {{vault}}/.obsidian/plugins/ocr-pdf-watcher/"

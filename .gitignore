@@ -2,14 +2,6 @@
 result
 result-*
 
-# Python
-ocr-cli/.venv/
-ocr-cli/__pycache__/
-ocr-cli/src/**/__pycache__/
-ocr-cli/.pytest_cache/
-ocr-cli/dist/
-*.egg-info/
-
 # Node / Obsidian plugin
 obsidian-plugin/node_modules/
 obsidian-plugin/dist/
@@ -21,3 +13,18 @@ obsidian-plugin/dist/
 
 # macOS
 .DS_Store
+.DS_Store?
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# SSL / private keys — just in case
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt

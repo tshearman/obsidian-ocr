@@ -9,7 +9,12 @@
     "build": "node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "tsx scripts/test-ocr.ts"
+    "ocr": "tsx cli.ts",
+    "lint": "eslint .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "cd obsidian-plugin && npm run lint && npm test"
   },
   "keywords": ["obsidian", "ocr", "pdf"],
   "license": "MIT",
@@ -17,10 +22,13 @@
     "@types/node": "^20.0.0",
     "builtin-modules": "^4.0.0",
     "esbuild": "^0.24.0",
+    "eslint": "^9.0.0",
     "mupdf": "^1.0.0",
     "obsidian": "^1.7.2",
+    "simple-git-hooks": "^2.11.0",
     "tsx": "^4.0.0",
     "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0",
     "vitest": "^2.0.0"
   },
   "dependencies": {

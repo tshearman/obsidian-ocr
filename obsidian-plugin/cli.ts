@@ -1,19 +1,19 @@
 /**
- * Manual end-to-end test for the OCR providers.
+ * Node.js CLI for OCR — converts images and PDFs to markdown via LLM vision APIs.
  *
- * Reads an image or PDF file, converts it to base64 data URL(s), and sends
- * it to the configured LLM provider.  PDF rendering uses the `mupdf` npm
- * package (WASM-based, no native compilation, no system deps).
+ * PDF rendering uses the `mupdf` npm package (WASM-based, no native compilation,
+ * no system deps). Output is written to stdout; status messages go to stderr.
  *
  * Usage:
- *   ANTHROPIC_API_KEY=sk-ant-... npm run test:e2e -- path/to/file.pdf
- *   OPENAI_API_KEY=sk-...  OCR_PROVIDER=openai npm run test:e2e -- path/to/image.png
+ *   ANTHROPIC_API_KEY=sk-ant-... npm run ocr -- path/to/file.pdf
+ *   OPENAI_API_KEY=sk-...  OCR_PROVIDER=openai npm run ocr -- path/to/image.png
  *
- * Or directly:
- *   ANTHROPIC_API_KEY=sk-ant-... npx tsx scripts/test-ocr.ts path/to/file.pdf
+ * Or via just from the repo root:
+ *   just ocr path/to/file.pdf
+ *   OCR_PROVIDER=openai just ocr path/to/image.png
  *
  * Environment variables:
- *   OCR_PROVIDER       "anthropic" (default) or "openai"
+ *   OCR_PROVIDER       "openai" (default) or "anthropic"
  *   ANTHROPIC_API_KEY  required when provider = anthropic
  *   ANTHROPIC_MODEL    default: claude-sonnet-4-6
  *   OPENAI_API_KEY     required when provider = openai
@@ -24,9 +24,9 @@
 import { readFileSync } from "node:fs";
 import { extname } from "node:path";
 import * as mupdf from "mupdf";
-import { AnthropicProvider } from "../src/providers/anthropic.js";
-import { OpenAIProvider } from "../src/providers/openai.js";
-import { normalizeLatexDelimiters } from "../src/ocr.js";
+import { AnthropicProvider } from "./src/providers/anthropic.js";
+import { OpenAIProvider } from "./src/providers/openai.js";
+import { normalizeLatexDelimiters } from "./src/ocr.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ function pdfToDataUrls(buf: Buffer, dpi: number): string[] {
 
 const filePath = process.argv[2];
 if (!filePath) {
-  console.error("Usage: node --experimental-strip-types scripts/test-ocr.ts <file>");
+  console.error("Usage: npm run ocr -- <file>");
   console.error("       Supported: pdf, png, jpg, jpeg, webp, gif");
   process.exit(1);
 }
@@ -92,7 +92,7 @@ if (ext === "pdf") {
   process.exit(1);
 }
 
-const providerName = (process.env.OCR_PROVIDER ?? "anthropic").toLowerCase();
+const providerName = (process.env.OCR_PROVIDER ?? "openai").toLowerCase();
 let provider: AnthropicProvider | OpenAIProvider;
 if (providerName === "openai") {
   const apiKey = process.env.OPENAI_API_KEY ?? "";
