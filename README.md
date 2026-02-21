@@ -1,6 +1,6 @@
 # OCR PDF Watcher
 
-An Obsidian plugin that watches configured vault folders for new PDFs and generates OCR markdown files using LLM vision APIs (Anthropic Claude or OpenAI GPT-4o).
+An Obsidian plugin that watches configured vault folders for new PDFs and generates OCR markdown files using LLM vision APIs (Anthropic Claude, OpenAI GPT-4o, or a local/remote Ollama instance).
 
 A companion Node CLI (`cli.ts`) lets you run the same OCR pipeline from the command line without Obsidian.
 
@@ -9,7 +9,7 @@ A companion Node CLI (`cli.ts`) lets you run the same OCR pipeline from the comm
 - Automatically OCRs PDFs dropped into watched folders
 - Supports handwritten notes, maths (LaTeX), tables, and diagrams
 - Outputs structured markdown with frontmatter (tags, source link, model used)
-- Supports Anthropic Claude and OpenAI GPT-4o
+- Supports Anthropic Claude, OpenAI GPT-4o, and Ollama (local or remote)
 - Configurable DPI, output directory, filename suffix, and custom prompt instructions
 - Deduplication via mtime + SHA-256 content hash — re-OCRs only when the file actually changes
 
@@ -37,6 +37,9 @@ PROVIDER=anthropic API_KEY=sk-ant-... just check-ocr
 
 # OpenAI
 PROVIDER=openai API_KEY=sk-... just check-ocr
+
+# Ollama (no API key required)
+PROVIDER=ollama API_KEY=unused just check-ocr
 ```
 
 This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if the response contains readable text. No quality checks — just a smoke test that the credentials, network, and pipeline are all working.
@@ -51,9 +54,11 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 
 | Setting | Default | Description |
 |---|---|---|
-| LLM provider | `openai` | `anthropic` or `openai` |
-| Anthropic / OpenAI API key | — | Your API key |
+| LLM provider | `anthropic` | `anthropic`, `openai`, or `ollama` |
+| Anthropic / OpenAI API key | — | Your API key (not required for Ollama) |
 | Model | `claude-sonnet-4-6` / `gpt-4o` | Model identifier |
+| Ollama host | `http://localhost:11434` | URL of the Ollama server |
+| Ollama model | `llama3.2-vision` | Any vision-capable model pulled via `ollama pull` |
 | Watch folders | — | Vault-relative paths, one per line |
 | Output directory | *(same as PDF)* | Where to write the `.md` file |
 | Output filename suffix | *(empty)* | Appended to the PDF basename, e.g. `-ocr` |
@@ -69,11 +74,17 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 The `cli.ts` script runs the same OCR pipeline from Node, writing markdown to stdout:
 
 ```bash
-# Anthropic (default)
+# Anthropic
 ANTHROPIC_API_KEY=sk-ant-... just ocr path/to/file.pdf
 
 # OpenAI
 OPENAI_API_KEY=sk-... OCR_PROVIDER=openai just ocr path/to/scan.png
+
+# Ollama (local, no API key needed)
+OCR_PROVIDER=ollama just ocr path/to/scan.png
+
+# Ollama (remote server)
+OCR_PROVIDER=ollama OLLAMA_HOST=http://my-server:11434 just ocr notes.pdf
 
 # Redirect output to a file
 ANTHROPIC_API_KEY=sk-ant-... just ocr notes.pdf > notes.md
@@ -83,11 +94,13 @@ ANTHROPIC_API_KEY=sk-ant-... just ocr notes.pdf > notes.md
 
 | Variable | Default | Description |
 |---|---|---|
-| `OCR_PROVIDER` | `openai` | `anthropic` or `openai` |
+| `OCR_PROVIDER` | `openai` | `anthropic`, `openai`, or `ollama` |
 | `ANTHROPIC_API_KEY` | — | Required when provider = anthropic |
 | `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Model override |
 | `OPENAI_API_KEY` | — | Required when provider = openai |
 | `OPENAI_MODEL` | `gpt-4o` | Model override |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3.2-vision` | Ollama model (must support vision) |
 | `PDF_DPI` | `150` | Render resolution for PDFs |
 
 ---
@@ -155,6 +168,7 @@ obsidian-plugin/
     providers/
       anthropic.ts    # Anthropic Claude provider
       openai.ts       # OpenAI GPT-4o provider
+      ollama.ts       # Ollama provider (local / remote)
   tests/              # Vitest unit tests
   eslint.config.mjs   # ESLint flat config
 ```

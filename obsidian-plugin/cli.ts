@@ -13,11 +13,13 @@
  *   OCR_PROVIDER=openai just ocr path/to/image.png
  *
  * Environment variables:
- *   OCR_PROVIDER       "openai" (default) or "anthropic"
+ *   OCR_PROVIDER       "openai" (default), "anthropic", or "ollama"
  *   ANTHROPIC_API_KEY  required when provider = anthropic
  *   ANTHROPIC_MODEL    default: claude-sonnet-4-6
  *   OPENAI_API_KEY     required when provider = openai
  *   OPENAI_MODEL       default: gpt-4o
+ *   OLLAMA_HOST        default: http://localhost:11434
+ *   OLLAMA_MODEL       default: llama3.2-vision
  *   PDF_DPI            default: 150
  */
 
@@ -26,6 +28,7 @@ import { extname } from "node:path";
 import * as mupdf from "mupdf";
 import { AnthropicProvider } from "./src/providers/anthropic.js";
 import { OpenAIProvider } from "./src/providers/openai.js";
+import { OllamaProvider } from "./src/providers/ollama.js";
 import { normalizeLatexDelimiters } from "./src/ocr.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,11 +96,16 @@ if (ext === "pdf") {
 }
 
 const providerName = (process.env.OCR_PROVIDER ?? "openai").toLowerCase();
-let provider: AnthropicProvider | OpenAIProvider;
+let provider: AnthropicProvider | OpenAIProvider | OllamaProvider;
 if (providerName === "openai") {
   const apiKey = process.env.OPENAI_API_KEY ?? "";
   if (!apiKey) { console.error("OPENAI_API_KEY is not set"); process.exit(1); }
   provider = new OpenAIProvider(apiKey, process.env.OPENAI_MODEL ?? "gpt-4o");
+} else if (providerName === "ollama") {
+  provider = new OllamaProvider(
+    process.env.OLLAMA_HOST ?? "http://localhost:11434",
+    process.env.OLLAMA_MODEL ?? "llama3.2-vision"
+  );
 } else {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
   if (!apiKey) { console.error("ANTHROPIC_API_KEY is not set"); process.exit(1); }

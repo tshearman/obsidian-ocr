@@ -38,6 +38,7 @@ vi.mock("openai", () => ({
 
 import { AnthropicProvider } from "../src/providers/anthropic";
 import { OpenAIProvider } from "../src/providers/openai";
+import { OllamaProvider } from "../src/providers/ollama";
 
 const FAKE_URLS = ["data:image/png;base64,abc123"];
 
@@ -140,6 +141,47 @@ describe("OpenAIProvider", () => {
 
   it("does not append extra instructions when none are provided", async () => {
     const provider = new OpenAIProvider("key", "gpt-4o");
+    await provider.ocr(FAKE_URLS);
+
+    const text = lastOpenAIUserText();
+    expect(text).not.toContain("\n\n");
+  });
+});
+
+// ── OllamaProvider ────────────────────────────────────────────────────────────
+
+describe("OllamaProvider", () => {
+  beforeEach(() => mockOpenAICreate.mockClear());
+
+  it("sends the system prompt", async () => {
+    const provider = new OllamaProvider("http://localhost:11434", "llama3.2-vision");
+    await provider.ocr(FAKE_URLS);
+
+    const call = mockOpenAICreate.mock.calls[0][0];
+    const systemMsg = call.messages.find(
+      (m: { role: string }) => m.role === "system"
+    );
+    expect(systemMsg.content).toBe(HANDWRITTEN_NOTES_PROMPT);
+  });
+
+  it("appends extra instructions to the user message when provided", async () => {
+    const provider = new OllamaProvider("http://localhost:11434", "llama3.2-vision");
+    await provider.ocr(FAKE_URLS, "Output in French.");
+
+    expect(lastOpenAIUserText()).toContain("Output in French.");
+  });
+
+  it("user message contains both base instruction and extra instructions", async () => {
+    const provider = new OllamaProvider("http://localhost:11434", "llama3.2-vision");
+    await provider.ocr(FAKE_URLS, "Preserve table structure.");
+
+    const text = lastOpenAIUserText();
+    expect(text).toContain("OCR");
+    expect(text).toContain("Preserve table structure.");
+  });
+
+  it("does not append extra instructions when none are provided", async () => {
+    const provider = new OllamaProvider("http://localhost:11434", "llama3.2-vision");
     await provider.ocr(FAKE_URLS);
 
     const text = lastOpenAIUserText();

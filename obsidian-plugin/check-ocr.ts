@@ -13,6 +13,7 @@
 import * as mupdf from "mupdf";
 import { AnthropicProvider } from "./src/providers/anthropic.js";
 import { OpenAIProvider } from "./src/providers/openai.js";
+import { OllamaProvider } from "./src/providers/ollama.js";
 import { normalizeLatexDelimiters } from "./src/ocr.js";
 
 const PDF_URL = "https://www.cs.utexas.edu/~EWD/ewd10xx/EWD1005.PDF";
@@ -83,13 +84,18 @@ const imageDataUrls = pdfToDataUrls(buf);
 assert(imageDataUrls.length > 0, "No pages rendered from PDF");
 console.error(`  ${imageDataUrls.length} page(s) rendered`);
 
-let provider: AnthropicProvider | OpenAIProvider;
+let provider: AnthropicProvider | OpenAIProvider | OllamaProvider;
 if (providerName === "openai") {
   provider = new OpenAIProvider(apiKey, process.env.OPENAI_MODEL ?? "gpt-4o");
 } else if (providerName === "anthropic") {
   provider = new AnthropicProvider(apiKey, process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6");
+} else if (providerName === "ollama") {
+  provider = new OllamaProvider(
+    process.env.OLLAMA_HOST ?? "http://localhost:11434",
+    process.env.OLLAMA_MODEL ?? "llama3.2-vision"
+  );
 } else {
-  console.error(`Error: unknown provider "${providerName}" (use anthropic or openai)`);
+  console.error(`Error: unknown provider "${providerName}" (use anthropic, openai, or ollama)`);
   process.exit(1);
 }
 

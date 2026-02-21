@@ -1,4 +1,4 @@
-export type LlmProvider = "anthropic" | "openai";
+export type ProviderName = "anthropic" | "openai" | "ollama";
 
 /** Persisted record of one successfully OCR'd PDF. */
 export interface ProcessedEntry {
@@ -10,18 +10,21 @@ export interface ProcessedEntry {
   /** SHA-256 hex digest of the PDF binary.
    *  Consulted only when mtime changes, to confirm the content actually differs. */
   hash: string;
-  /** Provider used, e.g. "anthropic" | "openai". */
+  /** Provider used, e.g. "anthropic" | "openai" | "ollama". */
   provider: string;
   /** Model identifier, e.g. "claude-sonnet-4-6". */
   model: string;
 }
 
 export interface OcrPluginSettings {
-  provider: LlmProvider;
+  provider: ProviderName;
   anthropicApiKey: string;
   openaiApiKey: string;
   anthropicModel: string;
   openaiModel: string;
+  /** Ollama server URL, e.g. "http://localhost:11434" or a remote host */
+  ollamaHost: string;
+  ollamaModel: string;
   /** Vault-relative folder paths to watch, e.g. ["Inbox", "Scans"] */
   watchFolders: string[];
   /** Appended to the PDF basename for the output file, e.g. "-ocr" → "doc-ocr.md" */
@@ -45,6 +48,8 @@ export const DEFAULT_SETTINGS: OcrPluginSettings = {
   openaiApiKey: "",
   anthropicModel: "claude-sonnet-4-6",
   openaiModel: "gpt-4o",
+  ollamaHost: "http://localhost:11434",
+  ollamaModel: "llama3.2-vision",
   watchFolders: [],
   outputSuffix: "",
   outputDir: "",

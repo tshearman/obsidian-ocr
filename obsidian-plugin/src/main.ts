@@ -1,7 +1,8 @@
 import { App, FuzzySuggestModal, Plugin, PluginSettingTab, Setting, TFile, Notice } from "obsidian";
-import { DEFAULT_SETTINGS, type OcrPluginSettings } from "./settings";
+import { DEFAULT_SETTINGS, type OcrPluginSettings, type ProviderName } from "./settings";
 import { AnthropicProvider } from "./providers/anthropic";
 import { OpenAIProvider } from "./providers/openai";
+import { OllamaProvider } from "./providers/ollama";
 import type { LlmProvider } from "./providers/base";
 import { PdfWatcher } from "./watcher";
 import { configurePdfWorker } from "./pdf-converter";
@@ -96,13 +97,18 @@ export default class OcrPlugin extends Plugin {
         this.settings.anthropicApiKey,
         this.settings.anthropicModel
       );
-    } else {
+    } else if (this.settings.provider === "openai") {
       if (!this.settings.openaiApiKey) {
         new Notice("OCR Plugin: OpenAI API key not configured — open settings.");
       }
       return new OpenAIProvider(
         this.settings.openaiApiKey,
         this.settings.openaiModel
+      );
+    } else {
+      return new OllamaProvider(
+        this.settings.ollamaHost,
+        this.settings.ollamaModel
       );
     }
   }
@@ -160,9 +166,10 @@ class OcrSettingTab extends PluginSettingTab {
         d
           .addOption("anthropic", "Anthropic Claude")
           .addOption("openai", "OpenAI GPT-4o")
+          .addOption("ollama", "Ollama (local / remote)")
           .setValue(this.plugin.settings.provider)
           .onChange(async (v) => {
-            this.plugin.settings.provider = v as "anthropic" | "openai";
+            this.plugin.settings.provider = v as ProviderName;
             await this.plugin.saveSettings();
           })
       );
@@ -211,6 +218,33 @@ class OcrSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.openaiModel)
           .onChange(async (v) => {
             this.plugin.settings.openaiModel = v.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // ── Ollama ────────────────────────────────────────────────────────────
+    new Setting(containerEl)
+      .setName("Ollama host")
+      .setDesc("URL of the Ollama server. Use the default for a local instance.")
+      .addText((t) =>
+        t
+          .setPlaceholder("http://localhost:11434")
+          .setValue(this.plugin.settings.ollamaHost)
+          .onChange(async (v) => {
+            this.plugin.settings.ollamaHost = v.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Ollama model")
+      .setDesc("A vision-capable model pulled via `ollama pull <model>`.")
+      .addText((t) =>
+        t
+          .setPlaceholder("llama3.2-vision")
+          .setValue(this.plugin.settings.ollamaModel)
+          .onChange(async (v) => {
+            this.plugin.settings.ollamaModel = v.trim();
             await this.plugin.saveSettings();
           })
       );
