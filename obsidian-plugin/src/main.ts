@@ -4,29 +4,44 @@ import { AnthropicProvider } from "./providers/anthropic";
 import { OpenAIProvider } from "./providers/openai";
 import { OllamaProvider } from "./providers/ollama";
 import type { LlmProvider } from "./providers/base";
-import { PdfWatcher } from "./watcher";
+import { PdfWatcher, buildKnownHashes } from "./watcher";
 import { configurePdfWorker } from "./pdf-converter";
+import { configurePreprocessingWorker } from "./preprocessing";
 
 export default class OcrPlugin extends Plugin {
   settings!: OcrPluginSettings;
   private watcher!: PdfWatcher;
+  /** Debounce timers for vault create/modify events, keyed by file path. */
+  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /**
+   * Set to true once initializeAndScan() completes.
+   * rebuildWatcher() immediately calls markReady() on the new watcher when
+   * this is true, so settings changes after startup don't leave the queue
+   * permanently blocked.
+   */
+  private initialized = false;
 
   async onload() {
     await this.loadSettings();
     configurePdfWorker(this.app, this.manifest.dir);
-    this.rebuildWatcher();
+    await this.configureWorkers();
+
+    // Start with an empty hash set; initializeAndScan() populates it in the
+    // background and calls markReady() when done, unblocking the queue.
+    const knownHashes = new Set<string>();
+    this.rebuildWatcher(knownHashes);
 
     // Watch for new files dropped into watched folders
     this.registerEvent(
       this.app.vault.on("create", (file) => {
-        if (file instanceof TFile) this.watcher.handleFile(file);
+        if (file instanceof TFile) this.debounceHandle(file);
       })
     );
 
     // Watch for modifications (e.g. file replaced in place)
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (file instanceof TFile) this.watcher.handleFile(file);
+        if (file instanceof TFile) this.debounceHandle(file);
       })
     );
 
@@ -40,7 +55,7 @@ export default class OcrPlugin extends Plugin {
             item
               .setTitle("OCR: generate markdown")
               .setIcon("scan-line")
-              .onClick(() => this.watcher.handleFile(file))
+              .onClick(() => this.watcher.handleFile(file, { force: true }))
           );
         }
       })
@@ -53,7 +68,7 @@ export default class OcrPlugin extends Plugin {
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (file?.extension === "pdf") {
-          if (!checking) this.watcher.handleFile(file);
+          if (!checking) this.watcher.handleFile(file, { force: true });
           return true;
         }
         return false;
@@ -71,6 +86,19 @@ export default class OcrPlugin extends Plugin {
       },
     });
 
+    // Command palette: rebuild hash index and queue any unprocessed PDFs
+    this.addCommand({
+      id: "ocr-rescan-watched-folders",
+      name: "OCR: rescan watched folders",
+      callback: () => void this.rescanWatchedFolders(),
+    });
+
+    // Defer until Obsidian has finished indexing the vault so that
+    // vault.getFiles() returns the full file list rather than an empty array.
+    this.app.workspace.onLayoutReady(() => {
+      void this.initializeAndScan(knownHashes);
+    });
+
     console.log("[OCR Plugin] loaded");
   }
 
@@ -78,14 +106,53 @@ export default class OcrPlugin extends Plugin {
     console.log("[OCR Plugin] unloaded");
   }
 
-  rebuildWatcher() {
+  /** Build knownHashes from vault markdown files, then enqueue any unprocessed PDFs. */
+  private async initializeAndScan(knownHashes: Set<string>): Promise<void> {
+    const built = await buildKnownHashes(this.app.vault);
+    for (const h of built) knownHashes.add(h);
+    this.initialized = true;
+    this.watcher.markReady(); // unblock drain — queued events now process
+    await this.watcher.scanWatchedFolders();
+  }
+
+  /** Rebuild hash index from scratch and re-queue any unprocessed PDFs. */
+  private async rescanWatchedFolders(): Promise<void> {
+    new Notice("OCR: rebuilding index from vault…");
+    const built = await buildKnownHashes(this.app.vault);
+    this.watcher.knownHashes.clear();
+    for (const h of built) this.watcher.knownHashes.add(h);
+    this.watcher.markReady(); // idempotent — safe to call again
+    new Notice("OCR: scanning watched folders…");
+    await this.watcher.scanWatchedFolders();
+  }
+
+  /** Debounce vault events by 300 ms to avoid processing partially-written files. */
+  private debounceHandle(file: TFile): void {
+    const existing = this.debounceTimers.get(file.path);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      this.debounceTimers.delete(file.path);
+      this.watcher.handleFile(file);
+    }, 300);
+    this.debounceTimers.set(file.path, timer);
+  }
+
+  /** Point background workers at their bundled scripts. Called once at load. */
+  private async configureWorkers(): Promise<void> {
+    if (!this.manifest.dir) return;
+    const adapter = this.app.vault.adapter as { getResourcePath?: (p: string) => string };
+    if (typeof adapter.getResourcePath !== "function") return;
+    const workerUrl = adapter.getResourcePath(`${this.manifest.dir}/preprocessing.worker.js`);
+    await configurePreprocessingWorker(workerUrl);
+  }
+
+  rebuildWatcher(knownHashes?: Set<string>) {
+    const hashes = knownHashes ?? this.watcher?.knownHashes ?? new Set<string>();
     const provider = this.buildProvider();
-    this.watcher = new PdfWatcher(
-      this.app.vault,
-      this.settings,
-      provider,
-      () => this.saveData(this.settings)
-    );
+    this.watcher = new PdfWatcher(this.app.vault, this.settings, provider, hashes);
+    // If startup has already completed, immediately unblock the new watcher's
+    // drain queue — otherwise initializeAndScan() will call markReady() later.
+    if (this.initialized) this.watcher.markReady();
   }
 
   private buildProvider(): LlmProvider {
@@ -297,16 +364,6 @@ class OcrSettingTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
-      .setName("Overwrite existing files")
-      .setDesc("Re-run OCR even if a markdown file already exists for this PDF.")
-      .addToggle((t) =>
-        t.setValue(this.plugin.settings.overwriteExisting).onChange(async (v) => {
-          this.plugin.settings.overwriteExisting = v;
-          await this.plugin.saveSettings();
-        })
-      );
-
     // ── PDF quality ───────────────────────────────────────────────────────
     new Setting(containerEl)
       .setName("PDF render DPI")
@@ -318,6 +375,20 @@ class OcrSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (v) => {
             this.plugin.settings.pdfDpi = v;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Pages per batch")
+      .setDesc("Number of PDF pages sent to the LLM in a single API call. Reduce for local models with small context windows.")
+      .addSlider((s) =>
+        s
+          .setLimits(1, 20, 1)
+          .setValue(this.plugin.settings.pagesPerBatch)
+          .setDynamicTooltip()
+          .onChange(async (v) => {
+            this.plugin.settings.pagesPerBatch = v;
             await this.plugin.saveSettings();
           })
       );

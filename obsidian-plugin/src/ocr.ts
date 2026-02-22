@@ -14,7 +14,8 @@ export async function ocrFile(
   provider: LlmProvider,
   pdfDpi = 150,
   preprocess = true,
-  extraInstructions = ""
+  extraInstructions = "",
+  pagesPerBatch = 3
 ): Promise<string> {
   let imageDataUrls: string[];
 
@@ -30,11 +31,22 @@ export async function ocrFile(
   }
 
   if (preprocess) {
-    imageDataUrls = await Promise.all(imageDataUrls.map(preprocessImageDataUrl));
+    const preprocessed: string[] = [];
+    for (const url of imageDataUrls) {
+      preprocessed.push(await preprocessImageDataUrl(url));
+      // Yield between pages so Obsidian's UI can update.
+      await new Promise<void>((r) => setTimeout(r, 0));
+    }
+    imageDataUrls = preprocessed;
   }
 
-  const raw = await provider.ocr(imageDataUrls, extraInstructions || undefined);
-  return normalizeLatexDelimiters(raw);
+  const results: string[] = [];
+  for (let i = 0; i < imageDataUrls.length; i += pagesPerBatch) {
+    const batch = imageDataUrls.slice(i, i + pagesPerBatch);
+    const raw = await provider.ocr(batch, extraInstructions || undefined);
+    results.push(normalizeLatexDelimiters(raw));
+  }
+  return results.join("\n\n");
 }
 
 /**

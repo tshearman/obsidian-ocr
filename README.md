@@ -62,7 +62,6 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 | Watch folders | — | Vault-relative paths, one per line |
 | Output directory | *(same as PDF)* | Where to write the `.md` file |
 | Output filename suffix | *(empty)* | Appended to the PDF basename, e.g. `-ocr` |
-| Overwrite existing | off | Re-OCR even if output already exists |
 | PDF render DPI | 150 | Higher = better quality, larger API payload |
 | Preprocessing | on | Auto-contrast + unsharp-mask before sending |
 | Additional OCR instructions | *(empty)* | Extra prompt text, e.g. "Output in French." |

@@ -3,8 +3,211 @@
  * The module imports from 'obsidian' so we mock it to run in Node.
  */
 
-import { describe, it, expect } from "vitest";
-import { extractFrontmatterTags } from "../src/watcher";
+import { describe, it, expect, vi } from "vitest";
+import {
+  extractFrontmatterTags,
+  extractFrontmatterHash,
+  buildKnownHashes,
+  resolveModel,
+  buildOutputContent,
+} from "../src/watcher";
+import { DEFAULT_SETTINGS } from "../src/settings";
+
+// ── A valid 64-char sha256 hex digest used across tests ────────────────────
+const VALID_HASH = "a".repeat(64);
+
+describe("extractFrontmatterHash", () => {
+  it("extracts a valid 64-char hex hash from frontmatter", () => {
+    const text = `---\nsource: "[[doc.pdf]]"\npdf-hash: "${VALID_HASH}"\n---\nBody.`;
+    expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
+  });
+
+  it("returns null when pdf-hash field is absent", () => {
+    const text = "---\nsource: \"[[doc.pdf]]\"\n---\nBody.";
+    expect(extractFrontmatterHash(text)).toBeNull();
+  });
+
+  it("returns null when there is no frontmatter at all", () => {
+    expect(extractFrontmatterHash("Just plain text.")).toBeNull();
+  });
+
+  it("returns null when hash is wrong length", () => {
+    const text = "---\npdf-hash: \"abc123\"\n---\nBody.";
+    expect(extractFrontmatterHash(text)).toBeNull();
+  });
+
+  it("returns null when hash contains non-hex characters", () => {
+    const invalid = "z".repeat(64);
+    const text = `---\npdf-hash: "${invalid}"\n---\nBody.`;
+    expect(extractFrontmatterHash(text)).toBeNull();
+  });
+
+  it("handles hash without surrounding quotes", () => {
+    const text = `---\npdf-hash: ${VALID_HASH}\n---\nBody.`;
+    expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
+  });
+
+  it("handles CRLF line endings", () => {
+    const text = `---\r\npdf-hash: "${VALID_HASH}"\r\n---\r\nBody.`;
+    expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
+  });
+});
+
+describe("buildKnownHashes", () => {
+  it("collects pdf-hash values from all markdown files", async () => {
+    const hash1 = "1".repeat(64);
+    const hash2 = "2".repeat(64);
+    const makeFile = (path: string) => ({ extension: "md", path });
+    const files = [
+      makeFile("a.md"),
+      makeFile("b.md"),
+      makeFile("c.md"),
+    ];
+    const contents: Record<string, string> = {
+      "a.md": `---\npdf-hash: "${hash1}"\n---\nBody.`,
+      "b.md": `---\npdf-hash: "${hash2}"\n---\nBody.`,
+      "c.md": "---\ntitle: No hash here\n---\nBody.",
+    };
+    const vault = {
+      getFiles: vi.fn().mockReturnValue(files),
+      read: vi.fn((f: { path: string }) => Promise.resolve(contents[f.path])),
+    };
+
+    const result = await buildKnownHashes(vault as never);
+
+    expect(result.size).toBe(2);
+    expect(result.has(hash1)).toBe(true);
+    expect(result.has(hash2)).toBe(true);
+  });
+
+  it("returns an empty set when no markdown files have pdf-hash", async () => {
+    const vault = {
+      getFiles: vi.fn().mockReturnValue([{ extension: "md", path: "note.md" }]),
+      read: vi.fn().mockResolvedValue("Just plain text."),
+    };
+    const result = await buildKnownHashes(vault as never);
+    expect(result.size).toBe(0);
+  });
+
+  it("ignores non-markdown files", async () => {
+    const vault = {
+      getFiles: vi.fn().mockReturnValue([
+        { extension: "pdf", path: "doc.pdf" },
+        { extension: "png", path: "img.png" },
+      ]),
+      read: vi.fn(),
+    };
+    const result = await buildKnownHashes(vault as never);
+    expect(result.size).toBe(0);
+    expect(vault.read).not.toHaveBeenCalled();
+  });
+});
+
+// ── Round-trip: hash written by buildOutputContent must be readable back ──────
+// These tests confirm that the format produced by buildOutputContent is
+// correctly parsed by extractFrontmatterHash.  If they fail, extraction is
+// broken.  If they pass, the "all files reprocessed on restart" bug is caused
+// by vault.getFiles() returning an empty list before layout is ready (fixed in
+// main.ts by deferring initializeAndScan to workspace.onLayoutReady).
+describe("hash round-trip (buildOutputContent → extractFrontmatterHash)", () => {
+  const file = { name: "doc.pdf", basename: "doc" };
+
+  it("extracts the hash from plain OCR output (no tags)", () => {
+    const hash = "1".repeat(64);
+    const content = buildOutputContent(file, "Body text.", hash, "claude-sonnet-4-6", "anthropic");
+    expect(extractFrontmatterHash(content)).toBe(hash);
+  });
+
+  it("extracts the hash when LLM output includes frontmatter tags", () => {
+    const hash = "2".repeat(64);
+    const llmOutput = "---\ntags:\n  - mathematics\n  - physics\n---\nBody.";
+    const content = buildOutputContent(file, llmOutput, hash, "claude-sonnet-4-6", "anthropic");
+    expect(extractFrontmatterHash(content)).toBe(hash);
+  });
+
+  it("buildKnownHashes returns the correct hash when given output from buildOutputContent", async () => {
+    const hash = "3".repeat(64);
+    const content = buildOutputContent(file, "Body.", hash, "gpt-4o", "openai");
+    const vault = {
+      getFiles: vi.fn().mockReturnValue([{ extension: "md", path: "ocr.md" }]),
+      read: vi.fn().mockResolvedValue(content),
+    };
+    const result = await buildKnownHashes(vault as never);
+    expect(result.has(hash)).toBe(true);
+  });
+
+  it("buildKnownHashes on an empty vault (simulates pre-layout-ready state) returns empty set", async () => {
+    // This models what happens when vault.getFiles() is called before Obsidian
+    // has finished loading — it returns an empty array.  The resulting empty
+    // knownHashes causes scanWatchedFolders to enqueue every PDF, triggering
+    // a full reprocessing run on every restart.
+    // Fix: defer initializeAndScan until workspace.onLayoutReady().
+    const vault = {
+      getFiles: vi.fn().mockReturnValue([]), // empty — vault not ready yet
+      read: vi.fn(),
+    };
+    const result = await buildKnownHashes(vault as never);
+    expect(result.size).toBe(0); // empty → all PDFs will be reprocessed
+  });
+});
+
+describe("buildOutputContent", () => {
+  const file = { name: "document.pdf", basename: "document" };
+  const hash = "abc123";
+  const model = "claude-sonnet-4-6";
+  const provider = "anthropic";
+
+  it("uses file.name (with extension) in the source link", () => {
+    const result = buildOutputContent(file, "Body text.", hash, model, provider);
+    expect(result).toContain('source: "[[document.pdf]]"');
+    expect(result).not.toContain('source: "[[document]]"');
+  });
+
+  it("includes provider, model, and hash in frontmatter", () => {
+    const result = buildOutputContent(file, "Body.", hash, model, provider);
+    expect(result).toContain(`provider: "${provider}"`);
+    expect(result).toContain(`model: "${model}"`);
+    expect(result).toContain(`pdf-hash: "${hash}"`);
+  });
+
+  it("appends the body after the frontmatter block", () => {
+    const result = buildOutputContent(file, "Body text.", hash, model, provider);
+    expect(result).toMatch(/---\nBody text\.$/);
+  });
+
+  it("hoists LLM-emitted tags into the frontmatter", () => {
+    const markdown = "---\ntags:\n  - math\n  - physics\n---\nBody.";
+    const result = buildOutputContent(file, markdown, hash, model, provider);
+    expect(result).toContain("tags:");
+    expect(result).toContain("  - math");
+    expect(result).toContain("  - physics");
+    // Format is "---\n<yaml>\n---\n<body>", so split on "---\n" yields [before, yaml, body].
+    const afterFrontmatter = result.split("---\n")[2];
+    expect(afterFrontmatter).toBe("Body.");
+  });
+
+  it("omits tags block when LLM output has no tags", () => {
+    const result = buildOutputContent(file, "No tags here.", hash, model, provider);
+    expect(result).not.toContain("tags:");
+  });
+});
+
+describe("resolveModel", () => {
+  it("returns anthropicModel when provider is anthropic", () => {
+    const settings = { ...DEFAULT_SETTINGS, provider: "anthropic" as const, anthropicModel: "claude-opus-4-6" };
+    expect(resolveModel(settings)).toBe("claude-opus-4-6");
+  });
+
+  it("returns openaiModel when provider is openai", () => {
+    const settings = { ...DEFAULT_SETTINGS, provider: "openai" as const, openaiModel: "gpt-4o-mini" };
+    expect(resolveModel(settings)).toBe("gpt-4o-mini");
+  });
+
+  it("returns ollamaModel when provider is ollama", () => {
+    const settings = { ...DEFAULT_SETTINGS, provider: "ollama" as const, ollamaModel: "llama3.2-vision" };
+    expect(resolveModel(settings)).toBe("llama3.2-vision");
+  });
+});
 
 describe("extractFrontmatterTags", () => {
   describe("no frontmatter", () => {

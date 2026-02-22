@@ -1,10 +1,13 @@
 /**
- * Watches configured vault folders for new or modified PDF files.
+ * Watches configured vault folders for new or modified PDF/image files.
  * For each matching file, runs OCR and writes a sibling .md file.
+ *
+ * Processing state is derived entirely from the `pdf-hash:` field in the
+ * generated markdown files — no separate log file is maintained.
  */
 
 import { Notice, TFile, Vault, normalizePath } from "obsidian";
-import type { OcrPluginSettings, ProcessedEntry } from "./settings";
+import type { OcrPluginSettings } from "./settings";
 import type { LlmProvider } from "./providers/base";
 import { ocrFile } from "./ocr";
 
@@ -22,34 +25,108 @@ export class PdfWatcher {
   private provider: LlmProvider;
   /** Tracks files currently being processed to prevent duplicate concurrent runs. */
   private processing = new Set<string>();
-  /** Persists the processedLog slice of settings to disk without rebuilding the watcher. */
-  private persistLog: () => Promise<void>;
+
+  /** In-memory set of SHA-256 hashes of every PDF that has a generated markdown output.
+   *  Built at startup from vault markdown frontmatter; updated after each successful OCR. */
+  readonly knownHashes: Set<string>;
+
+  /** FIFO queue of files waiting to be processed. */
+  private queue: TFile[] = [];
+  /** Number of files currently being OCR'd (target concurrency = 1). */
+  private activeCount = 0;
+
+  /**
+   * Resolves once knownHashes has been fully populated from the vault.
+   * drain() awaits this before processing any queued file, so events that
+   * arrive during startup are held safely until the index is complete.
+   */
+  private readyPromise: Promise<void>;
+  /** Call once after knownHashes is fully built to unblock drain(). */
+  markReady: () => void;
 
   constructor(
     vault: Vault,
     settings: OcrPluginSettings,
     provider: LlmProvider,
-    persistLog: () => Promise<void>
+    knownHashes: Set<string>
   ) {
     this.vault = vault;
     this.settings = settings;
     this.provider = provider;
-    this.persistLog = persistLog;
+    this.knownHashes = knownHashes;
+
+    let resolve!: () => void;
+    this.readyPromise = new Promise<void>((r) => { resolve = r; });
+    this.markReady = resolve;
   }
 
-  /** Call from plugin's vault onCreate/onModify event handlers. */
-  async handleFile(file: TFile): Promise<void> {
-    if (!this.shouldProcess(file)) return;
+  /**
+   * Add a file to the processing queue.
+   * Safe to call before markReady() — files accumulate and drain only after init.
+   */
+  enqueue(file: TFile): void {
+    if (file.extension !== "pdf") return;
+    if (
+      !this.queue.some((f) => f.path === file.path) &&
+      !this.processing.has(file.path)
+    ) {
+      this.queue.push(file);
+      void this.drain();
+    }
+  }
+
+  private async drain(): Promise<void> {
+    await this.readyPromise; // hold until knownHashes is fully built
+    if (this.activeCount > 0 || this.queue.length === 0) return;
+    const file = this.queue.shift()!;
+    this.activeCount++;
+    try {
+      await this.handleFile(file);
+    } finally {
+      this.activeCount--;
+      void this.drain();
+    }
+  }
+
+  /**
+   * Call from plugin's vault onCreate/onModify event handlers.
+   * Pass `force: true` from manual commands to bypass the hash check and
+   * always re-run OCR.
+   */
+  async handleFile(file: TFile, { force = false } = {}): Promise<void> {
+    if (!force && !this.shouldProcess(file)) return;
+    if (file.extension !== "pdf") return;
     if (this.processing.has(file.path)) return;
 
     this.processing.add(file.path);
     try {
-      await this.processFile(file);
+      await this.processFile(file, force);
     } catch (err) {
       new Notice(`OCR failed for ${file.name}: ${(err as Error).message}`);
       console.error("[OCR Plugin] Error processing file:", file.path, err);
     } finally {
       this.processing.delete(file.path);
+    }
+  }
+
+  /**
+   * Walk all PDFs in the configured watch folders, hash each one, and enqueue
+   * any whose hash is not yet in knownHashes.  Called after markReady() at
+   * startup and again by the "OCR: rescan watched folders" command.
+   */
+  async scanWatchedFolders(): Promise<void> {
+    const pdfs = this.vault
+      .getFiles()
+      .filter((f) => f.extension === "pdf" && this.shouldProcess(f));
+
+    for (let i = 0; i < pdfs.length; i++) {
+      const file = pdfs[i];
+      if (!this.processing.has(file.path)) {
+        const buf = await this.vault.readBinary(file);
+        const hash = await computeHash(buf);
+        if (!this.knownHashes.has(hash)) this.enqueue(file);
+      }
+      if (i % 10 === 0) await new Promise<void>((r) => setTimeout(r, 0));
     }
   }
 
@@ -66,61 +143,33 @@ export class PdfWatcher {
     });
   }
 
-  private async processFile(file: TFile): Promise<void> {
-    const outputPath = this.getOutputPath(file);
+  private async processFile(file: TFile, force = false): Promise<void> {
+    const buffer = await this.vault.readBinary(file);
+    const hash = await computeHash(buffer);
 
-    // Buffer and hash are computed lazily — we avoid reading the file at all
-    // when the mtime check is sufficient to confirm nothing has changed.
-    let buffer: ArrayBuffer | null = null;
-    let hash: string | null = null;
-
-    if (!this.settings.overwriteExisting) {
-      const entry = this.settings.processedLog[file.path];
-
-      if (entry) {
-        if (entry.mtime === file.stat.mtime) {
-          // Fast path: mtime unchanged — content definitely the same, skip.
-          return;
-        }
-        // mtime changed — read and hash to see if content actually differs.
-        buffer = await this.vault.readBinary(file);
-        hash = await computeHash(buffer);
-        if (hash === entry.hash) {
-          // Content unchanged (e.g. backup software bumped the mtime).
-          // Update the cached mtime so future checks stay fast.
-          this.settings.processedLog[file.path] = {
-            ...entry,
-            mtime: file.stat.mtime,
-          };
-          await this.persistLog();
-          return;
-        }
-        // Hash differs — content has changed, fall through to re-process.
-      } else {
-        // Not yet in the log. For backward compatibility with vaults that
-        // were set up before the log existed, skip if the output file is
-        // already present. The log will be populated on the next change.
-        const exists = await this.vault.adapter.exists(outputPath);
-        if (exists) return;
-      }
-    }
+    if (!force && this.knownHashes.has(hash)) return;
 
     new Notice(`OCR: processing ${file.name}…`);
 
-    if (!buffer) buffer = await this.vault.readBinary(file);
-    if (!hash) hash = await computeHash(buffer);
-
-    const model = this.currentModel();
+    const model = resolveModel(this.settings);
     const markdown = await ocrFile(
       buffer,
       file.extension,
       this.provider,
       this.settings.pdfDpi,
       this.settings.preprocess,
-      this.settings.additionalOcrPromptInstructions
+      this.settings.additionalOcrPromptInstructions,
+      this.settings.pagesPerBatch
     );
 
-    const content = this.buildOutput(file, markdown, hash, model);
+    const outputPath = this.getOutputPath(file);
+    const content = buildOutputContent(
+      { name: file.name, basename: file.basename },
+      markdown,
+      hash,
+      model,
+      this.settings.provider
+    );
 
     const exists = await this.vault.adapter.exists(outputPath);
     if (exists) {
@@ -129,48 +178,9 @@ export class PdfWatcher {
       await this.vault.create(outputPath, content);
     }
 
-    this.settings.processedLog[file.path] = {
-      processedAt: new Date().toISOString(),
-      mtime: file.stat.mtime,
-      hash,
-      provider: this.settings.provider,
-      model,
-    } satisfies ProcessedEntry;
-    await this.persistLog();
+    this.knownHashes.add(hash);
 
     new Notice(`OCR: done → ${outputPath}`);
-  }
-
-  private currentModel(): string {
-    return this.settings.provider === "anthropic"
-      ? this.settings.anthropicModel
-      : this.settings.openaiModel;
-  }
-
-  private buildOutput(
-    file: TFile,
-    markdown: string,
-    hash: string,
-    model: string
-  ): string {
-    const { tags, body } = extractFrontmatterTags(markdown);
-
-    const lines = [
-      "---",
-      `source: "[[${file.basename}]]"`,
-      `generated: "${new Date().toISOString()}"`,
-      `provider: "${this.settings.provider}"`,
-      `model: "${model}"`,
-      `pdf-hash: "${hash}"`,
-    ];
-
-    if (tags.length > 0) {
-      lines.push("tags:");
-      for (const tag of tags) lines.push(`  - ${tag}`);
-    }
-
-    lines.push("---", "");
-    return lines.join("\n") + body;
   }
 
   private getOutputPath(file: TFile): string {
@@ -179,6 +189,81 @@ export class PdfWatcher {
     const dir = this.settings.outputDir.trim() || file.parent?.path || "";
     return normalizePath(dir ? `${dir}/${basename}` : basename);
   }
+}
+
+// ── Pure exported functions ──────────────────────────────────────────────────
+
+/**
+ * Return the model identifier that corresponds to the currently-selected
+ * provider. Exported for testing.
+ */
+export function resolveModel(settings: OcrPluginSettings): string {
+  if (settings.provider === "anthropic") return settings.anthropicModel;
+  if (settings.provider === "openai") return settings.openaiModel;
+  return settings.ollamaModel;
+}
+
+/**
+ * Build the final markdown file content: a YAML frontmatter block followed by
+ * the OCR body. Any frontmatter tags emitted by the LLM are hoisted into the
+ * plugin-controlled frontmatter block.
+ *
+ * Exported as a pure function so it can be unit-tested without Obsidian types.
+ */
+export function buildOutputContent(
+  file: { name: string; basename: string },
+  markdown: string,
+  hash: string,
+  model: string,
+  provider: string
+): string {
+  const { tags, body } = extractFrontmatterTags(markdown);
+
+  const lines = [
+    "---",
+    `source: "[[${file.name}]]"`,
+    `generated: "${new Date().toISOString()}"`,
+    `provider: "${provider}"`,
+    `model: "${model}"`,
+    `pdf-hash: "${hash}"`,
+  ];
+
+  if (tags.length > 0) {
+    lines.push("tags:");
+    for (const tag of tags) lines.push(`  - ${tag}`);
+  }
+
+  lines.push("---", "");
+  return lines.join("\n") + body;
+}
+
+/**
+ * Extract the `pdf-hash:` value from a markdown file's YAML frontmatter.
+ * Returns the 64-character hex string, or null if absent or malformed.
+ * Exported for testing and for buildKnownHashes().
+ */
+export function extractFrontmatterHash(text: string): string | null {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm) return null;
+  const m = fm[1].match(/^pdf-hash:\s*"?([a-f0-9]{64})"?\s*$/m);
+  return m ? m[1] : null;
+}
+
+/**
+ * Walk every markdown file in the vault and collect all `pdf-hash:` values
+ * into a Set.  Yields every 50 files to stay non-blocking on the main thread.
+ * Exported so main.ts can call it at startup.
+ */
+export async function buildKnownHashes(vault: Vault): Promise<Set<string>> {
+  const hashes = new Set<string>();
+  const files = vault.getFiles().filter((f) => f.extension === "md");
+  for (let i = 0; i < files.length; i++) {
+    const text = await vault.read(files[i]);
+    const hash = extractFrontmatterHash(text);
+    if (hash) hashes.add(hash);
+    if (i % 50 === 0) await new Promise<void>((r) => setTimeout(r, 0));
+  }
+  return hashes;
 }
 
 /**

@@ -168,8 +168,39 @@ export function unsharpMask(
 // ── Canvas integration (runs in Electron/Obsidian) ────────────────────────────
 
 /**
+ * Singleton preprocessing worker. Set via configurePreprocessingWorker().
+ * When set, pixel processing runs off the main thread.
+ */
+let _worker: Worker | null = null;
+
+/**
+ * Point the preprocessing pipeline at its worker script so pixel operations
+ * run off the main thread. Call once at plugin load time (onload), passing
+ * the resource-path URL of preprocessing.worker.js.
+ */
+export async function configurePreprocessingWorker(workerUrl: string): Promise<void> {
+  try {
+    const response = await fetch(workerUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    _worker = new Worker(blobUrl);
+  } catch (err) {
+    // Worker script unavailable (e.g. not yet built or install step incomplete).
+    // preprocessImageDataUrl falls back to synchronous main-thread processing.
+    console.warn(
+      "[OCR Plugin] Preprocessing worker unavailable, falling back to main-thread processing:",
+      err
+    );
+  }
+}
+
+/**
  * Preprocess an image data URL for OCR: auto-contrast then unsharp mask.
  * Returns a new PNG data URL with the same dimensions.
+ *
+ * When a worker has been configured via configurePreprocessingWorker(), the
+ * CPU-intensive pixel operations run off the main thread (transferred via
+ * MessageChannel). Otherwise falls back to synchronous main-thread execution.
  *
  * Requires DOM APIs (HTMLImageElement, HTMLCanvasElement) — available in
  * Electron's renderer process / Obsidian.
@@ -192,9 +223,28 @@ export async function preprocessImageDataUrl(dataUrl: string): Promise<string> {
   ctx.drawImage(img, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  autoContrast(imageData.data);
-  unsharpMask(imageData.data, canvas.width, canvas.height);
+  if (_worker) {
+    // Off-main-thread path: transfer pixel buffer to worker, await result.
+    // MessageChannel gives each call its own reply port, so concurrent calls
+    // don't interfere with each other.
+    const channel = new MessageChannel();
+    const processed = await new Promise<Uint8ClampedArray>((resolve, reject) => {
+      channel.port1.onmessage = (e: MessageEvent<{ data: Uint8ClampedArray }>) =>
+        resolve(e.data.data);
+      channel.port1.onmessageerror = () =>
+        reject(new Error("Preprocessing worker message error"));
+      _worker!.postMessage(
+        { data: imageData.data, width: canvas.width, height: canvas.height, port: channel.port2 },
+        [imageData.data.buffer, channel.port2]
+      );
+    });
+    ctx.putImageData(new ImageData(processed, canvas.width, canvas.height), 0, 0);
+  } else {
+    // Synchronous fallback (no worker configured).
+    autoContrast(imageData.data);
+    unsharpMask(imageData.data, canvas.width, canvas.height);
+    ctx.putImageData(imageData, 0, 0);
+  }
 
-  ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL("image/png");
 }

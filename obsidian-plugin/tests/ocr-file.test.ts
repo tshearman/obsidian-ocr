@@ -172,6 +172,84 @@ describe("ocrFile", () => {
     });
   });
 
+  // ── Page batching ────────────────────────────────────────────────────────────
+
+  describe("pagesPerBatch", () => {
+    it("sends all pages in one call when page count <= pagesPerBatch", async () => {
+      vi.mocked(pdfToDataUrls).mockResolvedValue([
+        "data:image/png;base64,page1",
+        "data:image/png;base64,page2",
+        "data:image/png;base64,page3",
+      ]);
+      const provider = makeProvider("batch one");
+      await ocrFile(makeBuffer(), "pdf", provider, 150, false, "", 3);
+
+      expect(provider.ocr).toHaveBeenCalledOnce();
+      expect(provider.ocr).toHaveBeenCalledWith(
+        [
+          "data:image/png;base64,page1",
+          "data:image/png;base64,page2",
+          "data:image/png;base64,page3",
+        ],
+        undefined
+      );
+    });
+
+    it("splits pages into multiple calls when page count > pagesPerBatch", async () => {
+      vi.mocked(pdfToDataUrls).mockResolvedValue([
+        "data:image/png;base64,page1",
+        "data:image/png;base64,page2",
+        "data:image/png;base64,page3",
+        "data:image/png;base64,page4",
+        "data:image/png;base64,page5",
+      ]);
+      const provider = makeProvider("batch result");
+      await ocrFile(makeBuffer(), "pdf", provider, 150, false, "", 2);
+
+      expect(provider.ocr).toHaveBeenCalledTimes(3);
+      expect(vi.mocked(provider.ocr).mock.calls[0][0]).toEqual([
+        "data:image/png;base64,page1",
+        "data:image/png;base64,page2",
+      ]);
+      expect(vi.mocked(provider.ocr).mock.calls[1][0]).toEqual([
+        "data:image/png;base64,page3",
+        "data:image/png;base64,page4",
+      ]);
+      expect(vi.mocked(provider.ocr).mock.calls[2][0]).toEqual([
+        "data:image/png;base64,page5",
+      ]);
+    });
+
+    it("concatenates batch results separated by a blank line", async () => {
+      vi.mocked(pdfToDataUrls).mockResolvedValue([
+        "data:image/png;base64,page1",
+        "data:image/png;base64,page2",
+        "data:image/png;base64,page3",
+        "data:image/png;base64,page4",
+      ]);
+      const provider: LlmProvider = {
+        ocr: vi.fn()
+          .mockResolvedValueOnce("# Page 1\n\nContent A.")
+          .mockResolvedValueOnce("# Page 3\n\nContent B."),
+      };
+      const result = await ocrFile(makeBuffer(), "pdf", provider, 150, false, "", 2);
+
+      expect(result).toBe("# Page 1\n\nContent A.\n\n# Page 3\n\nContent B.");
+    });
+
+    it("pagesPerBatch=1 calls the provider once per page", async () => {
+      vi.mocked(pdfToDataUrls).mockResolvedValue([
+        "data:image/png;base64,page1",
+        "data:image/png;base64,page2",
+        "data:image/png;base64,page3",
+      ]);
+      const provider = makeProvider("page text");
+      await ocrFile(makeBuffer(), "pdf", provider, 150, false, "", 1);
+
+      expect(provider.ocr).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe("error cases", () => {
     it("throws for unsupported file extension", async () => {
       const provider = makeProvider("text");

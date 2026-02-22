@@ -13,7 +13,8 @@ function copyWorker() {
 
 const isProd = process.argv[2] === "production";
 
-const context = await esbuild.context({
+// Main plugin bundle (CommonJS, required by Obsidian)
+const mainContext = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
   external: [
@@ -44,11 +45,25 @@ const context = await esbuild.context({
   minify: isProd,
 });
 
+// Preprocessing Web Worker (IIFE — workers don't support CommonJS exports)
+const workerContext = await esbuild.context({
+  entryPoints: ["src/preprocessing.worker.ts"],
+  bundle: true,
+  external: [...builtins],
+  format: "iife",
+  target: "es2022",
+  logLevel: "info",
+  sourcemap: isProd ? false : "inline",
+  treeShaking: true,
+  outfile: "dist/preprocessing.worker.js",
+  minify: isProd,
+});
+
 copyWorker();
 
 if (isProd) {
-  await context.rebuild();
+  await Promise.all([mainContext.rebuild(), workerContext.rebuild()]);
   process.exit(0);
 } else {
-  await context.watch();
+  await Promise.all([mainContext.watch(), workerContext.watch()]);
 }

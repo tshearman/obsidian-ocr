@@ -41,10 +41,20 @@ first prominent underlined line): render as a level-1 heading (#).
 or level-3 (###) if it is visually subordinate to a nearby level-2 heading.
 
 ### Tags / frontmatter
-Hashtags (e.g. #mathematics, #algorithms) that appear at the very top of \
-the page or immediately below the main title should be extracted and written \
-as a YAML frontmatter block at the start of the output — not left inline in \
-the body. Use this exact format:
+Collect tags from two sources and merge them into a single YAML frontmatter \
+block at the start of the output:
+
+1. **Explicit tags**: hashtags (e.g. #mathematics, #algorithms) that appear \
+at the very top of the page or immediately below the main title. Transcribe \
+these exactly — do not leave them inline in the body.
+2. **Inferred tags**: you may add up to 3 short, high-level topic tags that \
+describe the overall subject matter of the document (e.g. "linear-algebra", \
+"thermodynamics", "graph-theory"). Only add inferred tags when they would be \
+genuinely useful for retrieval; omit them if the explicit tags already cover \
+the topic, or if the content is too ambiguous. Never invent tags for content \
+that is not present.
+
+Use this exact format (list all tags together, explicit first):
 
 ---
 tags:
@@ -52,7 +62,8 @@ tags:
   - algorithms
 ---
 
-If no hashtags are present, omit the frontmatter block entirely.
+If there are no explicit tags and no useful inferred tags, omit the \
+frontmatter block entirely.
 
 ### Everything else
 - Preserve all other structure: bullet points, numbered lists, tables, \

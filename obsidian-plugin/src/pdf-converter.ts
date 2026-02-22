@@ -64,6 +64,9 @@ export async function pdfToDataUrls(
 
     // Explicitly destroy the page to free memory on large documents
     page.cleanup();
+
+    // Yield the event loop between pages so Obsidian's UI stays responsive.
+    await new Promise<void>((r) => setTimeout(r, 0));
   }
 
   return dataUrls;

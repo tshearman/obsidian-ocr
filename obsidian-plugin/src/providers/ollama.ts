@@ -38,6 +38,10 @@ export class OllamaProvider implements LlmProvider {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userContent },
       ],
+      // Keep the model loaded for 15 min between batches (default is 5 min,
+      // which is too short for multi-batch PDF processing).
+      // @ts-expect-error — Ollama extension field not in OpenAI types
+      keep_alive: "15m",
     });
 
     return response.choices[0]?.message?.content ?? "";

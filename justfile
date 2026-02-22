@@ -43,4 +43,6 @@ install-plugin vault:
     mkdir -p "{{vault}}/.obsidian/plugins/ocr-pdf-watcher"
     ln -sf "$(pwd)/obsidian-plugin/dist/main.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/main.js"
     ln -sf "$(pwd)/obsidian-plugin/manifest.json" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/manifest.json"
+    ln -sf "$(pwd)/obsidian-plugin/dist/pdf.worker.min.mjs" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/pdf.worker.min.mjs"
+    ln -sf "$(pwd)/obsidian-plugin/dist/preprocessing.worker.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/preprocessing.worker.js"
     echo "Plugin linked to {{vault}}/.obsidian/plugins/ocr-pdf-watcher/"
