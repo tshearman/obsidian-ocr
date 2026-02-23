@@ -49,7 +49,7 @@ at the very top of the page or immediately below the main title. Transcribe \
 these exactly — do not leave them inline in the body.
 2. **Inferred tags**: you may add up to 3 short, high-level topic tags that \
 describe the overall subject matter of the document (e.g. "linear-algebra", \
-"thermodynamics", "graph-theory"). Only add inferred tags when they would be \
+"journal", "meditation",). Only add inferred tags when they would be \
 genuinely useful for retrieval; omit them if the explicit tags already cover \
 the topic, or if the content is too ambiguous. Never invent tags for content \
 that is not present.
@@ -63,7 +63,7 @@ tags:
 ---
 
 If there are no explicit tags and no useful inferred tags, omit the \
-frontmatter block entirely.
+frontmatter tags block entirely.
 
 ### Everything else
 - Preserve all other structure: bullet points, numbered lists, tables, \
