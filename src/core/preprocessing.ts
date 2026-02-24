@@ -228,8 +228,8 @@ export async function preprocessImageDataUrl(dataUrl: string): Promise<string> {
     // MessageChannel gives each call its own reply port, so concurrent calls
     // don't interfere with each other.
     const channel = new MessageChannel();
-    const processed = await new Promise<Uint8ClampedArray>((resolve, reject) => {
-      channel.port1.onmessage = (e: MessageEvent<{ data: Uint8ClampedArray }>) =>
+    const processed = await new Promise<Uint8ClampedArray<ArrayBuffer>>((resolve, reject) => {
+      channel.port1.onmessage = (e: MessageEvent<{ data: Uint8ClampedArray<ArrayBuffer> }>) =>
         resolve(e.data.data);
       channel.port1.onmessageerror = () =>
         reject(new Error("Preprocessing worker message error"));

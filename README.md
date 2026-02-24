@@ -1,12 +1,12 @@
-# OCR PDF Watcher
+# OCR File Watcher
 
-An Obsidian plugin that watches configured vault folders for new PDFs and generates OCR markdown files using LLM vision APIs (Anthropic Claude, OpenAI GPT-4o, or a local/remote Ollama instance).
+An Obsidian plugin that watches configured vault folders for new PDFs and images and generates OCR markdown files using LLM vision APIs (Anthropic Claude, OpenAI GPT-4o, or a local/remote Ollama instance).
 
-A companion Node CLI (`cli.ts`) lets you run the same OCR pipeline from the command line without Obsidian.
+A companion Node CLI (`scripts/cli.ts`) lets you run the same OCR pipeline from the command line without Obsidian.
 
 ## Features
 
-- Automatically OCRs PDFs dropped into watched folders
+- Automatically OCRs PDFs and images dropped into watched folders
 - Supports handwritten notes, maths (LaTeX), tables, and diagrams
 - Outputs structured markdown with frontmatter (tags, source link, model used)
 - Supports Anthropic Claude, OpenAI GPT-4o, and Ollama (local or remote)
@@ -47,7 +47,7 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 ### Enable the plugin
 
 1. Open Obsidian → **Settings → Community plugins**
-2. Enable **OCR PDF Watcher**
+2. Enable **OCR File Watcher**
 3. Open the plugin settings and enter your API key(s)
 
 ### Configuration
@@ -60,8 +60,8 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 | Ollama host | `http://localhost:11434` | URL of the Ollama server |
 | Ollama model | `llama3.2-vision` | Any vision-capable model pulled via `ollama pull` |
 | Watch folders | — | Vault-relative paths, one per line |
-| Output directory | *(same as PDF)* | Where to write the `.md` file |
-| Output filename suffix | *(empty)* | Appended to the PDF basename, e.g. `-ocr` |
+| Output directory | *(same as source file)* | Where to write the `.md` file |
+| Output filename suffix | *(empty)* | Appended to the file basename, e.g. `-ocr` |
 | PDF render DPI | 150 | Higher = better quality, larger API payload |
 | Preprocessing | on | Auto-contrast + unsharp-mask before sending |
 | Additional OCR instructions | *(empty)* | Extra prompt text, e.g. "Output in French." |
@@ -70,7 +70,7 @@ This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if
 
 ## Command line (CLI)
 
-The `cli.ts` script runs the same OCR pipeline from Node, writing markdown to stdout:
+The `scripts/cli.ts` script runs the same OCR pipeline from Node, writing markdown to stdout:
 
 ```bash
 # Anthropic
@@ -148,26 +148,30 @@ Then use npm scripts directly, or install `just` and use the justfile from the r
 npm run lint && npm test
 ```
 
-To install it manually after cloning: `cd obsidian-plugin && npx simple-git-hooks`.
+To install it manually after cloning: `npx simple-git-hooks`.
 
 ### Project layout
 
 ```
-obsidian-plugin/
-  cli.ts              # Node CLI entry point
-  check-ocr.ts        # Integration smoke test
-  src/
-    main.ts           # Obsidian plugin entry point + settings UI
-    watcher.ts        # Vault event handler
-    ocr.ts            # Orchestration: file → images → LLM → markdown
+scripts/
+  cli.ts            # Node CLI entry point
+  check-ocr.ts      # Integration smoke test
+src/
+  core/             # Pure OCR engine (no Obsidian dependency)
+    ocr.ts          # Orchestration: file → images → LLM → markdown
     pdf-converter.ts  # pdfjs-dist rendering (Electron/DOM)
     preprocessing.ts  # Auto-contrast + unsharp-mask
-    prompt.ts         # Shared system prompt
-    settings.ts       # Settings types and defaults
+    preprocessing.worker.ts  # Web worker for pixel processing
+    prompt.ts       # Shared system prompt
     providers/
-      anthropic.ts    # Anthropic Claude provider
-      openai.ts       # OpenAI GPT-4o provider
-      ollama.ts       # Ollama provider (local / remote)
-  tests/              # Vitest unit tests
-  eslint.config.mjs   # ESLint flat config
+      anthropic.ts  # Anthropic Claude provider
+      openai.ts     # OpenAI GPT-4o provider
+      ollama.ts     # Ollama provider (local / remote)
+  plugin/           # Obsidian plugin wrapper
+    main.ts         # Plugin entry point + commands
+    settings.ts     # Settings types and defaults
+    settings-tab.ts # Settings UI panel
+    watcher.ts      # Vault event handler
+tests/              # Vitest unit tests
+eslint.config.mjs   # ESLint flat config
 ```

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { normalizeLatexDelimiters } from "../src/ocr";
+import { normalizeLatexDelimiters } from "../src/core/postprocessing";
 
 // ── Inline math: \( ... \) → $ ... $ ─────────────────────────────────────────
 
@@ -130,9 +130,9 @@ describe("no-op cases", () => {
     expect(normalizeLatexDelimiters("")).toBe("");
   });
 
-  it("leaves \\begin{gather} block unchanged", () => {
+  it("leaves \\begin{align*} block unchanged", () => {
     const text =
-      "$$\n\\begin{gather}\n& P''.x \\\\\n& = \\{ \\text{hint} \\} \\\\\n\\end{gather}\n$$";
+      "$$\n\\begin{align*}\nP''.x &= \\{ \\text{hint} \\} \\\\\n      &= P'.x\n\\end{align*}\n$$";
     expect(normalizeLatexDelimiters(text)).toBe(text);
   });
 });

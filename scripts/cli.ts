@@ -26,10 +26,10 @@
 import { readFileSync } from "node:fs";
 import { extname } from "node:path";
 import * as mupdf from "mupdf";
-import { AnthropicProvider } from "./src/providers/anthropic.js";
-import { OpenAIProvider } from "./src/providers/openai.js";
-import { OllamaProvider } from "./src/providers/ollama.js";
-import { normalizeLatexDelimiters } from "./src/ocr.js";
+import { AnthropicProvider } from "../src/core/providers/anthropic.js";
+import { OpenAIProvider } from "../src/core/providers/openai.js";
+import { OllamaProvider } from "../src/core/providers/ollama.js";
+import { normalizeLatexDelimiters } from "../src/core/postprocessing.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

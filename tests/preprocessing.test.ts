@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { autoContrast, unsharpMask } from "../src/preprocessing";
+import { autoContrast, unsharpMask } from "../src/core/preprocessing";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -4,24 +4,24 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { LlmProvider } from "../src/providers/base";
+import type { LlmProvider } from "../src/core/providers/base";
 
 // Mock pdf-converter before importing ocrFile
-vi.mock("../src/pdf-converter", () => ({
+vi.mock("../src/core/pdf-converter", () => ({
   pdfToDataUrls: vi.fn().mockResolvedValue(["data:image/png;base64,abc123"]),
   dpiToScale: (dpi: number) => dpi / 72,
 }));
 
 // Mock preprocessing (uses DOM Canvas — not available in Node)
-vi.mock("../src/preprocessing", () => ({
+vi.mock("../src/core/preprocessing", () => ({
   preprocessImageDataUrl: vi.fn().mockImplementation((url: string) =>
     Promise.resolve(url)
   ),
 }));
 
-import { ocrFile } from "../src/ocr";
-import { pdfToDataUrls } from "../src/pdf-converter";
-import { preprocessImageDataUrl } from "../src/preprocessing";
+import { ocrFile } from "../src/core/ocr";
+import { pdfToDataUrls } from "../src/core/pdf-converter";
+import { preprocessImageDataUrl } from "../src/core/preprocessing";
 
 function makeProvider(response: string): LlmProvider {
   return {

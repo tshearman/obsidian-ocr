@@ -54,9 +54,9 @@
               unset -f _ocr_find_root
 
               # Auto-install npm deps on first enter
-              if [ ! -d "$OCR_ROOT/obsidian-plugin/node_modules" ]; then
-                echo "Installing npm dependencies for obsidian-plugin..."
-                (cd "$OCR_ROOT/obsidian-plugin" && npm install --silent)
+              if [ ! -d "$OCR_ROOT/node_modules" ]; then
+                echo "Installing npm dependencies..."
+                (cd "$OCR_ROOT" && npm install --silent)
               fi
 
               echo ""
@@ -64,8 +64,8 @@
               echo "  Node   $(node --version)"
               echo "  npm    $(npm --version)"
               echo ""
-              echo "  cd obsidian-plugin/ → npm run dev"
-              echo "  just --list         → available tasks"
+              echo "  npm run dev  → watch mode"
+              echo "  just --list  → available tasks"
               echo ""
             '';
           };

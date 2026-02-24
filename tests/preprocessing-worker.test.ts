@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { configurePreprocessingWorker } from "../src/preprocessing";
+import { configurePreprocessingWorker } from "../src/core/preprocessing";
 
 describe("configurePreprocessingWorker", () => {
   beforeEach(() => {

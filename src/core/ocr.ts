@@ -5,8 +5,10 @@
 import type { LlmProvider } from "./providers/base";
 import { pdfToDataUrls, dpiToScale } from "./pdf-converter";
 import { preprocessImageDataUrl } from "./preprocessing";
+import { normalizeLatexDelimiters } from "./postprocessing";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
+export const SUPPORTED_EXTENSIONS = new Set(["pdf", ...IMAGE_EXTENSIONS]);
 
 export async function ocrFile(
   fileBuffer: ArrayBuffer,
@@ -49,21 +51,6 @@ export async function ocrFile(
   return results.join("\n\n");
 }
 
-/**
- * Safety-net delimiter normalisation.
- *
- * The prompt instructs the model to use dollar-sign delimiters exclusively,
- * but models occasionally still emit bracket-style delimiters. These two
- * substitutions correct that without touching anything else.
- *
- * - `\( … \)` → `$ … $`   (inline math)
- * - `\[ … \]` → `$$ … $$` (display math)
- */
-export function normalizeLatexDelimiters(text: string): string {
-  text = text.replace(/\\\(([\s\S]*?)\\\)/g, "$$$1$$");
-  text = text.replace(/\\\[([\s\S]*?)\\\]/g, "$$$$$1$$$$");
-  return text;
-}
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);

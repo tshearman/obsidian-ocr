@@ -4,34 +4,34 @@ default:
 
 # Install npm dependencies (also wires up git pre-commit hook)
 bootstrap:
-    cd obsidian-plugin && npm install
+    npm install
 
 # Convert a file to markdown via the LLM (output to stdout)
 # Usage: just ocr path/to/file.pdf
 # Usage: OCR_PROVIDER=openai just ocr path/to/image.png
 ocr *args:
-    cd obsidian-plugin && npm run ocr -- {{args}}
+    npm run ocr -- {{args}}
 
-# Obsidian plugin — watch mode (for development)
+# Watch mode (for development)
 dev:
-    cd obsidian-plugin && npm run dev
+    npm run dev
 
-# Obsidian plugin — production build
+# Production build
 build:
-    cd obsidian-plugin && npm run build
+    npm run build
 
 # Run the test suite
 test:
-    cd obsidian-plugin && npm test
+    npm test
 
 # Integration check: OCR a real PDF and verify the output is non-empty text
 # Usage: PROVIDER=anthropic API_KEY=sk-ant-... just check-ocr
 check-ocr:
-    cd obsidian-plugin && npm run check-ocr
+    npm run check-ocr
 
 # Lint TypeScript sources
 lint:
-    cd obsidian-plugin && npm run lint
+    npm run lint
 
 # Format Nix files
 fmt:
@@ -41,8 +41,8 @@ fmt:
 # Usage: just install-plugin ~/path/to/vault
 install-plugin vault:
     mkdir -p "{{vault}}/.obsidian/plugins/ocr-pdf-watcher"
-    ln -sf "$(pwd)/obsidian-plugin/dist/main.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/main.js"
-    ln -sf "$(pwd)/obsidian-plugin/manifest.json" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/manifest.json"
-    ln -sf "$(pwd)/obsidian-plugin/dist/pdf.worker.min.mjs" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/pdf.worker.min.mjs"
-    ln -sf "$(pwd)/obsidian-plugin/dist/preprocessing.worker.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/preprocessing.worker.js"
+    ln -sf "$(pwd)/dist/main.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/main.js"
+    ln -sf "$(pwd)/manifest.json" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/manifest.json"
+    ln -sf "$(pwd)/dist/pdf.worker.min.mjs" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/pdf.worker.min.mjs"
+    ln -sf "$(pwd)/dist/preprocessing.worker.js" "{{vault}}/.obsidian/plugins/ocr-pdf-watcher/preprocessing.worker.js"
     echo "Plugin linked to {{vault}}/.obsidian/plugins/ocr-pdf-watcher/"

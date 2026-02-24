@@ -10,19 +10,19 @@ import {
   buildKnownHashes,
   resolveModel,
   buildOutputContent,
-} from "../src/watcher";
-import { DEFAULT_SETTINGS } from "../src/settings";
+} from "../src/plugin/watcher";
+import { DEFAULT_SETTINGS } from "../src/plugin/settings";
 
 // ── A valid 64-char sha256 hex digest used across tests ────────────────────
 const VALID_HASH = "a".repeat(64);
 
 describe("extractFrontmatterHash", () => {
   it("extracts a valid 64-char hex hash from frontmatter", () => {
-    const text = `---\nsource: "[[doc.pdf]]"\npdf-hash: "${VALID_HASH}"\n---\nBody.`;
+    const text = `---\nsource: "[[doc.pdf]]"\nsource-hash: "${VALID_HASH}"\n---\nBody.`;
     expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
   });
 
-  it("returns null when pdf-hash field is absent", () => {
+  it("returns null when source-hash field is absent", () => {
     const text = "---\nsource: \"[[doc.pdf]]\"\n---\nBody.";
     expect(extractFrontmatterHash(text)).toBeNull();
   });
@@ -32,29 +32,29 @@ describe("extractFrontmatterHash", () => {
   });
 
   it("returns null when hash is wrong length", () => {
-    const text = "---\npdf-hash: \"abc123\"\n---\nBody.";
+    const text = "---\nsource-hash: \"abc123\"\n---\nBody.";
     expect(extractFrontmatterHash(text)).toBeNull();
   });
 
   it("returns null when hash contains non-hex characters", () => {
     const invalid = "z".repeat(64);
-    const text = `---\npdf-hash: "${invalid}"\n---\nBody.`;
+    const text = `---\nsource-hash: "${invalid}"\n---\nBody.`;
     expect(extractFrontmatterHash(text)).toBeNull();
   });
 
   it("handles hash without surrounding quotes", () => {
-    const text = `---\npdf-hash: ${VALID_HASH}\n---\nBody.`;
+    const text = `---\nsource-hash: ${VALID_HASH}\n---\nBody.`;
     expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
   });
 
   it("handles CRLF line endings", () => {
-    const text = `---\r\npdf-hash: "${VALID_HASH}"\r\n---\r\nBody.`;
+    const text = `---\r\nsource-hash: "${VALID_HASH}"\r\n---\r\nBody.`;
     expect(extractFrontmatterHash(text)).toBe(VALID_HASH);
   });
 });
 
 describe("buildKnownHashes", () => {
-  it("collects pdf-hash values from all markdown files", async () => {
+  it("collects source-hash values from all markdown files", async () => {
     const hash1 = "1".repeat(64);
     const hash2 = "2".repeat(64);
     const makeFile = (path: string) => ({ extension: "md", path });
@@ -64,8 +64,8 @@ describe("buildKnownHashes", () => {
       makeFile("c.md"),
     ];
     const contents: Record<string, string> = {
-      "a.md": `---\npdf-hash: "${hash1}"\n---\nBody.`,
-      "b.md": `---\npdf-hash: "${hash2}"\n---\nBody.`,
+      "a.md": `---\nsource-hash: "${hash1}"\n---\nBody.`,
+      "b.md": `---\nsource-hash: "${hash2}"\n---\nBody.`,
       "c.md": "---\ntitle: No hash here\n---\nBody.",
     };
     const vault = {
@@ -80,7 +80,7 @@ describe("buildKnownHashes", () => {
     expect(result.has(hash2)).toBe(true);
   });
 
-  it("returns an empty set when no markdown files have pdf-hash", async () => {
+  it("returns an empty set when no markdown files have source-hash", async () => {
     const vault = {
       getFiles: vi.fn().mockReturnValue([{ extension: "md", path: "note.md" }]),
       read: vi.fn().mockResolvedValue("Just plain text."),
@@ -167,7 +167,7 @@ describe("buildOutputContent", () => {
     const result = buildOutputContent(file, "Body.", hash, model, provider);
     expect(result).toContain(`provider: "${provider}"`);
     expect(result).toContain(`model: "${model}"`);
-    expect(result).toContain(`pdf-hash: "${hash}"`);
+    expect(result).toContain(`source-hash: "${hash}"`);
   });
 
   it("appends the body after the frontmatter block", () => {

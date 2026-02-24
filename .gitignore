@@ -3,8 +3,8 @@ result
 result-*
 
 # Node / Obsidian plugin
-obsidian-plugin/node_modules/
-obsidian-plugin/dist/
+node_modules/
+dist/
 
 # Env files — never commit secrets
 .env

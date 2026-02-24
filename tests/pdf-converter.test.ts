@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { dpiToScale } from "../src/pdf-converter";
+import { dpiToScale } from "../src/core/pdf-converter";
 
 describe("dpiToScale", () => {
   it("72 DPI → scale 1.0 (pdf.js base)", () => {

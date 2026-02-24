@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { HANDWRITTEN_NOTES_PROMPT } from "../src/prompt";
+import { HANDWRITTEN_NOTES_PROMPT } from "../src/core/prompt";
 
 // ── Anthropic mock ────────────────────────────────────────────────────────────
 
@@ -36,9 +36,9 @@ vi.mock("openai", () => ({
 
 // ── Imports (must come after vi.mock calls) ───────────────────────────────────
 
-import { AnthropicProvider } from "../src/providers/anthropic";
-import { OpenAIProvider } from "../src/providers/openai";
-import { OllamaProvider } from "../src/providers/ollama";
+import { AnthropicProvider } from "../src/core/providers/anthropic";
+import { OpenAIProvider } from "../src/core/providers/openai";
+import { OllamaProvider } from "../src/core/providers/ollama";
 
 const FAKE_URLS = ["data:image/png;base64,abc123"];
 

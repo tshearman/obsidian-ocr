@@ -9,13 +9,13 @@
     "build": "node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ocr": "tsx cli.ts",
-    "check-ocr": "tsx check-ocr.ts",
+    "ocr": "tsx scripts/cli.ts",
+    "check-ocr": "tsx scripts/check-ocr.ts",
     "lint": "eslint .",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {
-    "pre-commit": "cd obsidian-plugin && npm run lint && npm test"
+    "pre-commit": "npm run lint && npm test"
   },
   "keywords": ["obsidian", "ocr", "pdf"],
   "license": "MIT",

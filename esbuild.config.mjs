@@ -15,7 +15,7 @@ const isProd = process.argv[2] === "production";
 
 // Main plugin bundle (CommonJS, required by Obsidian)
 const mainContext = await esbuild.context({
-  entryPoints: ["src/main.ts"],
+  entryPoints: ["src/plugin/main.ts"],
   bundle: true,
   external: [
     "obsidian",
@@ -47,7 +47,7 @@ const mainContext = await esbuild.context({
 
 // Preprocessing Web Worker (IIFE — workers don't support CommonJS exports)
 const workerContext = await esbuild.context({
-  entryPoints: ["src/preprocessing.worker.ts"],
+  entryPoints: ["src/core/preprocessing.worker.ts"],
   bundle: true,
   external: [...builtins],
   format: "iife",

@@ -1,8 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { LlmProvider } from "./base";
+import { buildUserText } from "./base";
 import { HANDWRITTEN_NOTES_PROMPT } from "../prompt";
-
-const SYSTEM_PROMPT = HANDWRITTEN_NOTES_PROMPT;
 
 export class AnthropicProvider implements LlmProvider {
   private client: Anthropic;
@@ -31,15 +30,12 @@ export class AnthropicProvider implements LlmProvider {
       });
     });
 
-    const userText = extraInstructions
-      ? `Please OCR all content above.\n\n${extraInstructions}`
-      : `Please OCR all content above.`;
-    content.push({ type: "text", text: userText });
+    content.push({ type: "text", text: buildUserText(extraInstructions) });
 
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 8192,
-      system: SYSTEM_PROMPT,
+      system: HANDWRITTEN_NOTES_PROMPT,
       messages: [{ role: "user", content }],
     });
 

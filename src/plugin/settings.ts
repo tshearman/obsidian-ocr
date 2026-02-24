@@ -11,15 +11,15 @@ export interface OcrPluginSettings {
   ollamaModel: string;
   /** Vault-relative folder paths to watch, e.g. ["Inbox", "Scans"] */
   watchFolders: string[];
-  /** Appended to the PDF basename for the output file, e.g. "-ocr" → "doc-ocr.md" */
+  /** Appended to the file basename for the output file, e.g. "-ocr" → "doc-ocr.md" */
   outputSuffix: string;
-  /** Vault-relative folder for output files. Empty = same folder as the source PDF. */
+  /** Vault-relative folder for output files. Empty = same folder as the source file. */
   outputDir: string;
   /** PDF rendering resolution (higher = better quality, larger API payload) */
   pdfDpi: number;
   /** Apply auto-contrast + unsharp-mask preprocessing before sending to the LLM */
   preprocess: boolean;
-  /** Number of PDF pages sent to the LLM in a single API call (batched sequentially) */
+  /** Number of pages sent to the LLM in a single API call (batched sequentially) */
   pagesPerBatch: number;
   /** Optional extra instructions appended to the OCR user prompt. */
   additionalOcrPromptInstructions: string;
