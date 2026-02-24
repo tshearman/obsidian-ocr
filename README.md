@@ -33,13 +33,13 @@ Before opening Obsidian, confirm that the OCR pipeline works end-to-end with you
 
 ```bash
 # Anthropic
-PROVIDER=anthropic API_KEY=sk-ant-... just check-ocr
+OCR_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... just check-ocr
 
 # OpenAI
-PROVIDER=openai API_KEY=sk-... just check-ocr
+OCR_PROVIDER=openai OPENAI_API_KEY=sk-... just check-ocr
 
 # Ollama (no API key required)
-PROVIDER=ollama API_KEY=unused just check-ocr
+OCR_PROVIDER=ollama OLLAMA_MODEL=... OLLAMA_HOST=... just check-ocr
 ```
 
 This downloads a real PDF, renders it, sends it to the API, and prints `PASS` if the response contains readable text. No quality checks — just a smoke test that the credentials, network, and pipeline are all working.
@@ -80,10 +80,10 @@ ANTHROPIC_API_KEY=sk-ant-... just ocr path/to/file.pdf
 OPENAI_API_KEY=sk-... OCR_PROVIDER=openai just ocr path/to/scan.png
 
 # Ollama (local, no API key needed)
-OCR_PROVIDER=ollama just ocr path/to/scan.png
+OCR_PROVIDER=ollama OLLAMA_MODEL=... just ocr path/to/scan.png
 
 # Ollama (remote server)
-OCR_PROVIDER=ollama OLLAMA_HOST=http://my-server:11434 just ocr notes.pdf
+OCR_PROVIDER=ollama OLLAMA_MODEL=... OLLAMA_HOST=... just ocr notes.pdf
 
 # Redirect output to a file
 ANTHROPIC_API_KEY=sk-ant-... just ocr notes.pdf > notes.md
@@ -106,7 +106,7 @@ ANTHROPIC_API_KEY=sk-ant-... just ocr notes.pdf > notes.md
 
 ## Development
 
-### With Nix (recommended)
+### With Nix
 
 Nix provides a fully reproducible environment with the exact Node.js version pinned.
 
@@ -154,24 +154,24 @@ To install it manually after cloning: `npx simple-git-hooks`.
 
 ```
 scripts/
-  cli.ts            # Node CLI entry point
-  check-ocr.ts      # Integration smoke test
-src/
-  core/             # Pure OCR engine (no Obsidian dependency)
-    ocr.ts          # Orchestration: file → images → LLM → markdown
-    pdf-converter.ts  # pdfjs-dist rendering (Electron/DOM)
-    preprocessing.ts  # Auto-contrast + unsharp-mask
+  cli.ts                     # Node CLI entry point
+  check-ocr.ts               # Integration smoke test
+src/       
+  core/                      # OCR engine
+    ocr.ts                   # Orchestration: file → images → LLM → markdown
+    pdf-converter.ts         # pdfjs-dist rendering (Electron/DOM)
+    preprocessing.ts         # Auto-contrast + unsharp-mask
     preprocessing.worker.ts  # Web worker for pixel processing
-    prompt.ts       # Shared system prompt
+    prompt.ts                # Shared system prompt
     providers/
-      anthropic.ts  # Anthropic Claude provider
-      openai.ts     # OpenAI GPT-4o provider
-      ollama.ts     # Ollama provider (local / remote)
-  plugin/           # Obsidian plugin wrapper
-    main.ts         # Plugin entry point + commands
-    settings.ts     # Settings types and defaults
-    settings-tab.ts # Settings UI panel
-    watcher.ts      # Vault event handler
-tests/              # Vitest unit tests
-eslint.config.mjs   # ESLint flat config
+      anthropic.ts           # Anthropic Claude provider
+      openai.ts              # OpenAI GPT-4o provider
+      ollama.ts              # Ollama provider (local / remote)
+  plugin/                    # Obsidian plugin wrapper
+    main.ts                  # Plugin entry point + commands
+    settings.ts              # Settings types and defaults
+    settings-tab.ts          # Settings UI panel
+    watcher.ts               # Vault event handler
+tests/                       # Vitest unit tests
+eslint.config.mjs            # ESLint flat config
 ```
