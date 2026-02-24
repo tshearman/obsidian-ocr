@@ -110,7 +110,7 @@ describe("buildKnownHashes", () => {
 // by vault.getFiles() returning an empty list before layout is ready (fixed in
 // main.ts by deferring initializeAndScan to workspace.onLayoutReady).
 describe("hash round-trip (buildOutputContent → extractFrontmatterHash)", () => {
-  const file = { name: "doc.pdf", basename: "doc" };
+  const file = { name: "doc.pdf", basename: "doc", ctime: 0, mtime: 0 };
 
   it("extracts the hash from plain OCR output (no tags)", () => {
     const hash = "1".repeat(64);
@@ -152,7 +152,7 @@ describe("hash round-trip (buildOutputContent → extractFrontmatterHash)", () =
 });
 
 describe("buildOutputContent", () => {
-  const file = { name: "document.pdf", basename: "document" };
+  const file = { name: "document.pdf", basename: "document", ctime: 0, mtime: 0 };
   const hash = "abc123";
   const model = "claude-sonnet-4-6";
   const provider = "anthropic";

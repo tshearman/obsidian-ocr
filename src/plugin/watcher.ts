@@ -164,7 +164,7 @@ export class FileWatcher {
 
     const outputPath = this.getOutputPath(file);
     const content = buildOutputContent(
-      { name: file.name, basename: file.basename },
+      { name: file.name, basename: file.basename, ctime: file.stat.ctime, mtime: file.stat.mtime },
       markdown,
       hash,
       model,
@@ -210,8 +210,17 @@ export function resolveModel(settings: OcrPluginSettings): string {
  *
  * Exported as a pure function so it can be unit-tested without Obsidian types.
  */
+function formatTs(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
+    `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`
+  );
+}
+
 export function buildOutputContent(
-  file: { name: string; basename: string },
+  file: { name: string; basename: string; ctime: number; mtime: number },
   markdown: string,
   hash: string,
   model: string,
@@ -226,6 +235,8 @@ export function buildOutputContent(
     `provider: "${provider}"`,
     `model: "${model}"`,
     `source-hash: "${hash}"`,
+    `source-ctime: "${formatTs(file.ctime)}"`,
+    `source-mtime: "${formatTs(file.mtime)}"`,
   ];
 
   if (tags.length > 0) {
