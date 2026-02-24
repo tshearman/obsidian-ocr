@@ -134,7 +134,7 @@ export default class OcrPlugin extends Plugin {
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       this.debounceTimers.delete(file.path);
-      this.watcher.handleFile(file);
+      this.watcher.enqueue(file);
     }, 300);
     this.debounceTimers.set(file.path, timer);
   }

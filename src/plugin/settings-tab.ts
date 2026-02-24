@@ -154,6 +154,21 @@ export class OcrSettingTab extends PluginSettingTab {
           })
       );
 
+    new Setting(containerEl)
+      .setName("Processing log file")
+      .setDesc(
+        "Vault-relative path for the processing log. Each line records a success or failure with a timestamp. Empty = disabled."
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder("e.g. _ocr-processing.log")
+          .setValue(this.plugin.settings.logFilePath)
+          .onChange(async (v) => {
+            this.plugin.settings.logFilePath = v.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
     // ── PDF quality ───────────────────────────────────────────────────────
     new Setting(containerEl)
       .setName("PDF render DPI")
@@ -179,6 +194,20 @@ export class OcrSettingTab extends PluginSettingTab {
           .setDynamicTooltip()
           .onChange(async (v) => {
             this.plugin.settings.pagesPerBatch = v;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Max concurrent files")
+      .setDesc("Maximum number of files processed in parallel. Lower values reduce API load and prevent timeouts when many files arrive at once.")
+      .addSlider((s) =>
+        s
+          .setLimits(1, 5, 1)
+          .setValue(this.plugin.settings.maxConcurrent)
+          .setDynamicTooltip()
+          .onChange(async (v) => {
+            this.plugin.settings.maxConcurrent = v;
             await this.plugin.saveSettings();
           })
       );

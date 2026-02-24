@@ -23,6 +23,10 @@ export interface OcrPluginSettings {
   pagesPerBatch: number;
   /** Optional extra instructions appended to the OCR user prompt. */
   additionalOcrPromptInstructions: string;
+  /** Maximum number of files processed concurrently. Reduce to 1 to serialise all requests. */
+  maxConcurrent: number;
+  /** Vault-relative path for the processing log file. Empty string disables logging. */
+  logFilePath: string;
 }
 
 export const DEFAULT_SETTINGS: OcrPluginSettings = {
@@ -40,4 +44,6 @@ export const DEFAULT_SETTINGS: OcrPluginSettings = {
   preprocess: true,
   pagesPerBatch: 3,
   additionalOcrPromptInstructions: "",
+  maxConcurrent: 1,
+  logFilePath: "_ocr-processing.log",
 };

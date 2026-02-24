@@ -4,6 +4,7 @@
  *
  * Processing state is derived entirely from the `source-hash:` field in the
  * generated markdown files — no separate log file is maintained.
+ * A processing log is optionally written to logFilePath in the vault.
  */
 
 import { Notice, TFile, Vault, normalizePath } from "obsidian";
@@ -77,14 +78,16 @@ export class FileWatcher {
 
   private async drain(): Promise<void> {
     await this.readyPromise; // hold until knownHashes is fully built
-    if (this.activeCount > 0 || this.queue.length === 0) return;
-    const file = this.queue.shift()!;
-    this.activeCount++;
-    try {
-      await this.handleFile(file);
-    } finally {
-      this.activeCount--;
-      void this.drain();
+    while (
+      this.activeCount < this.settings.maxConcurrent &&
+      this.queue.length > 0
+    ) {
+      const file = this.queue.shift()!;
+      this.activeCount++;
+      void this.handleFile(file).finally(() => {
+        this.activeCount--;
+        void this.drain();
+      });
     }
   }
 
@@ -102,8 +105,10 @@ export class FileWatcher {
     try {
       await this.processFile(file, force);
     } catch (err) {
-      new Notice(`OCR failed for ${file.name}: ${(err as Error).message}`);
+      const error = err as Error;
+      new Notice(`OCR failed for ${file.name}: ${error.message}`);
       console.error("[OCR Plugin] Error processing file:", file.path, err);
+      void this.appendLog("ERROR", file.path, error.message + (error.stack ? `\n${error.stack}` : ""));
     } finally {
       this.processing.delete(file.path);
     }
@@ -181,6 +186,7 @@ export class FileWatcher {
     this.knownHashes.add(hash);
 
     new Notice(`OCR: done → ${outputPath}`);
+    void this.appendLog("OK", file.path, `→ ${outputPath}`);
   }
 
   private getOutputPath(file: TFile): string {
@@ -188,6 +194,29 @@ export class FileWatcher {
     const basename = `${file.basename}${suffix}.md`;
     const dir = this.settings.outputDir.trim() || file.parent?.path || "";
     return normalizePath(dir ? `${dir}/${basename}` : basename);
+  }
+
+  /**
+   * Append a single line to the configured log file.
+   * Format: ISO timestamp TAB level TAB filePath TAB detail
+   * Does nothing if logFilePath is empty.
+   */
+  private async appendLog(level: "OK" | "ERROR", filePath: string, detail: string): Promise<void> {
+    const logPath = this.settings.logFilePath.trim();
+    if (!logPath) return;
+
+    const ts = new Date().toISOString();
+    const line = `${ts}\t${level}\t${filePath}\t${detail.replace(/\n/g, " | ")}`;
+
+    const normalized = normalizePath(logPath);
+    try {
+      const existing = await this.vault.adapter.exists(normalized)
+        ? await this.vault.adapter.read(normalized)
+        : "";
+      await this.vault.adapter.write(normalized, existing + line + "\n");
+    } catch (err) {
+      console.error("[OCR Plugin] Failed to write log:", err);
+    }
   }
 }
 
